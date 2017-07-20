@@ -31,6 +31,9 @@ compile: lint
 watch:
 	@./run.sh
 
+proto:
+	@protoc -I pipeline ./pipeline/pipeline_service.proto --go_out=plugins=grpc:pipeline
+
 test: build
 	@go test $(shell glide novendor)
 
@@ -38,4 +41,5 @@ install:
 	@go get -u github.com/golang/lint/golint
 	@go get -u github.com/Masterminds/glide
 	@go get -u github.com/unchartedsoftware/witch
+	@go get -u github.com/golang/protobuf/protoc-gen-go
 	@glide install

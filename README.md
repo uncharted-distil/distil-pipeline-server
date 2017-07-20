@@ -42,7 +42,7 @@ sudo mv protoc3/bin/protoc /usr/bin/protoc
 
 Generate GRPC source from proto definition:
 ```base
-protoc -I pipeline pipeline/pipeline_service.proto --go_out=plugins=grpc:pipeline
+make proto
 ```
 
 Build, watch, and run server:

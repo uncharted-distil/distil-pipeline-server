@@ -9,10 +9,12 @@ import (
 	"golang.org/x/net/context"
 )
 
+// Server represents a basic distil pipeline server.
 type Server struct {
 	sessionIDs map[string]interface{}
 }
 
+// CreatePipelines will create a mocked pipeline.
 func (*Server) CreatePipelines(request *PipelineCreateRequest, stream PipelineCompute_CreatePipelinesServer) error {
 
 	log.Info("Received CreatePipelines")

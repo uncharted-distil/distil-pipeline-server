@@ -1,5 +1,5 @@
 syntax = "proto3";
-package compute;
+package pipeline;
 
 /*
 * This interface is based on the unified API proposal available at

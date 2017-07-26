@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/satori/go.uuid"
-	log "github.com/unchartedsoftware/plog"
+	"github.com/unchartedsoftware/plog"
 	"golang.org/x/net/context"
 )
 

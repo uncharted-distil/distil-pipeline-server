@@ -50,6 +50,21 @@ Build, watch, and run server:
 make watch
 ```
 
+## Docker Deployment
+
+Create a docker image from current source:
+
+```bash
+cd deploy
+./docker_build.sh
+```
+
+Run the container:
+
+```bash
+./docker_run.sh
+```
+
 ## Common Issues:
 
 #### "glide: command not found":

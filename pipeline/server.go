@@ -15,18 +15,18 @@ const (
 
 // Server represents a basic distil pipeline server.
 type Server struct {
-	sessionIDs    map[string]interface{}
-	endSessionIDs map[string]interface{}
-	pipelineIDs   map[string]interface{}
+	sessionIDs    map[string]bool
+	endSessionIDs map[string]bool
+	pipelineIDs   map[string]bool
 }
 
 // NewServer creates a new pipeline server instance.  ID maps are initialized with place holder values
 // to support tests without explicit calls to session management.
 func NewServer() *Server {
 	server := new(Server)
-	server.sessionIDs = map[string]interface{}{"test-session-id": nil}
-	server.endSessionIDs = map[string]interface{}{"test-end-session-id": nil}
-	server.pipelineIDs = map[string]interface{}{"test-pipeline-id": nil}
+	server.sessionIDs = map[string]bool{"test-session-id": true}
+	server.endSessionIDs = map[string]bool{"test-end-session-id": true}
+	server.pipelineIDs = map[string]bool{"test-pipeline-id": true}
 	return server
 }
 
@@ -34,8 +34,6 @@ func NewServer() *Server {
 func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream PipelineCompute_CreatePipelinesServer) error {
 
 	log.Infof("Received CreatePipelines - %v", request)
-
-	pipelineID := uuid.NewV1().String()
 
 	// If the session ID doesn't exist return a single result flagging the error
 	// and close the stream.
@@ -59,55 +57,66 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Pipeline
 		return nil
 	}
 
-	// save the pipeline ID for subsequent calls
-	s.pipelineIDs[pipelineID] = nil
+	for i := int32(0); i < request.GetMaxPipelines(); i++ {
 
-	results := make([]*PipelineCreateResult, 3)
+		pipelineID := uuid.NewV1().String()
 
-	// create an initial submitted response
-	response := createResponse(pipelineID, StatusCode_OK, "")
-	submitted := PipelineCreateResult{
-		ResponseInfo: response,
-		ProgressInfo: Progress_SUBMITTED,
-		PipelineId:   pipelineID,
-	}
-	results[0] = &submitted
+		// save the pipeline ID for subsequent calls
+		s.pipelineIDs[pipelineID] = true
 
-	// create a follow on running response
-	running := PipelineCreateResult{
-		ResponseInfo: response,
-		ProgressInfo: Progress_RUNNING,
-		PipelineId:   pipelineID,
-	}
-	results[1] = &running
+		results := make([]*PipelineCreateResult, 3)
 
-	// completed response
-	score := Score{
-		Metric: Metric_F1_MACRO,
-		Value:  1.0,
-	}
-	info := &PipelineCreated{
-		PredictResultUris: []string{"file://testdata/train_result.csv"},
-		Output:            Output_GENERAL_SCORE,
-		Score:             []*Score{&score},
-	}
-	completed := PipelineCreateResult{
-		ResponseInfo: response,
-		ProgressInfo: Progress_COMPLETE,
-		PipelineId:   pipelineID,
-		PipelineInfo: info,
-	}
-	results[2] = &completed
-
-	// loop to send results every 5 seconds
-	for i, result := range results {
-		log.Infof("Sending part %d", i)
-		if err := stream.Send(result); err != nil {
-			log.Error(err)
-			return err
+		// create an initial submitted response
+		response := createResponse(pipelineID, StatusCode_OK, "")
+		submitted := PipelineCreateResult{
+			ResponseInfo: response,
+			ProgressInfo: Progress_SUBMITTED,
+			PipelineId:   pipelineID,
 		}
-		time.Sleep(sendDelay)
+		results[0] = &submitted
+
+		// create a follow on running response
+		running := PipelineCreateResult{
+			ResponseInfo: response,
+			ProgressInfo: Progress_RUNNING,
+			PipelineId:   pipelineID,
+		}
+		results[1] = &running
+
+		// create a completed response
+		scores := []*Score{}
+		for _, metric := range request.GetMetric() {
+			score := Score{
+				Metric: metric,
+				Value:  1.0,
+			}
+			scores = append(scores, &score)
+		}
+
+		info := &PipelineCreated{
+			PredictResultUris: []string{"file://testdata/train_result.csv"},
+			Output:            request.Output,
+			Score:             scores,
+		}
+		completed := PipelineCreateResult{
+			ResponseInfo: response,
+			ProgressInfo: Progress_COMPLETE,
+			PipelineId:   pipelineID,
+			PipelineInfo: info,
+		}
+		results[2] = &completed
+
+		// loop to send results every n seconds
+		for i, result := range results {
+			log.Infof("Sending part %d", i)
+			if err := stream.Send(result); err != nil {
+				log.Error(err)
+				return err
+			}
+			time.Sleep(sendDelay)
+		}
 	}
+
 	return nil
 }
 
@@ -191,7 +200,7 @@ func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream Pipelin
 func (s *Server) StartSession(context.Context, *SessionRequest) (*Response, error) {
 	log.Info("Received StartSession")
 	id := uuid.NewV1().String()
-	s.sessionIDs[id] = nil
+	s.sessionIDs[id] = true
 	response := createResponse(id, StatusCode_OK, "")
 	return response, nil
 }
@@ -209,7 +218,7 @@ func (s *Server) EndSession(context context.Context, sessionContext *SessionCont
 		responseStr = fmt.Sprintf("session %s already ended", id)
 		statusCode = StatusCode_SESSION_ENDED
 	}
-	s.endSessionIDs[id] = nil
+	s.endSessionIDs[id] = true
 	delete(s.sessionIDs, id)
 	response := createResponse(id, statusCode, responseStr)
 	return response, nil

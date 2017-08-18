@@ -2,8 +2,10 @@ package pipeline
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
+	"github.com/fatih/set"
 	"github.com/satori/go.uuid"
 	"github.com/unchartedsoftware/plog"
 	"golang.org/x/net/context"
@@ -15,18 +17,18 @@ const (
 
 // Server represents a basic distil pipeline server.
 type Server struct {
-	sessionIDs    map[string]bool
-	endSessionIDs map[string]bool
-	pipelineIDs   map[string]bool
+	sessionIDs    *set.Set
+	endSessionIDs *set.Set
+	pipelineIDs   *set.Set
 }
 
 // NewServer creates a new pipeline server instance.  ID maps are initialized with place holder values
 // to support tests without explicit calls to session management.
 func NewServer() *Server {
 	server := new(Server)
-	server.sessionIDs = map[string]bool{"test-session-id": true}
-	server.endSessionIDs = map[string]bool{"test-end-session-id": true}
-	server.pipelineIDs = map[string]bool{"test-pipeline-id": true}
+	server.sessionIDs = set.New("test-session-id")
+	server.endSessionIDs = set.New("test-end-session-id")
+	server.pipelineIDs = set.New("test-pipeline-id")
 	return server
 }
 
@@ -38,7 +40,7 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Pipeline
 	// If the session ID doesn't exist return a single result flagging the error
 	// and close the stream.
 	sessionID := request.Context.GetSessionId()
-	if _, ok := s.sessionIDs[sessionID]; !ok {
+	if !s.sessionIDs.Has(sessionID) {
 		log.Errorf("Session %s does not exist", sessionID)
 		err := stream.Send(errorPipelineCreateResult(StatusCode_SESSION_UNKNOWN, fmt.Sprintf("session %s does not exist", sessionID)))
 		if err != nil {
@@ -47,7 +49,7 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Pipeline
 		}
 		return nil
 	}
-	if _, ok := s.endSessionIDs[sessionID]; ok {
+	if s.endSessionIDs.Has(sessionID) {
 		log.Errorf("Session %s already closed", sessionID)
 		err := stream.Send(errorPipelineCreateResult(StatusCode_SESSION_ENDED, fmt.Sprintf("session %s already ended", sessionID)))
 		if err != nil {
@@ -57,77 +59,87 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Pipeline
 		return nil
 	}
 
+	wg := sync.WaitGroup{}
+	wg.Add(int(request.GetMaxPipelines()))
+
+	// race condition is intentional - reporting last encountered error is sufficient
+	var sendError error
+
 	for i := int32(0); i < request.GetMaxPipelines(); i++ {
+		go func() {
+			pipelineID := uuid.NewV1().String()
 
-		pipelineID := uuid.NewV1().String()
+			// save the pipeline ID for subsequent calls
+			s.pipelineIDs.Add(pipelineID)
 
-		// save the pipeline ID for subsequent calls
-		s.pipelineIDs[pipelineID] = true
+			results := make([]*PipelineCreateResult, 3)
 
-		results := make([]*PipelineCreateResult, 3)
-
-		// create an initial submitted response
-		response := createResponse(pipelineID, StatusCode_OK, "")
-		submitted := PipelineCreateResult{
-			ResponseInfo: response,
-			ProgressInfo: Progress_SUBMITTED,
-			PipelineId:   pipelineID,
-		}
-		results[0] = &submitted
-
-		// create a follow on running response
-		running := PipelineCreateResult{
-			ResponseInfo: response,
-			ProgressInfo: Progress_RUNNING,
-			PipelineId:   pipelineID,
-		}
-		results[1] = &running
-
-		// create a completed response
-		scores := []*Score{}
-		for _, metric := range request.GetMetric() {
-			score := Score{
-				Metric: metric,
-				Value:  1.0,
+			// create an initial submitted response
+			response := createResponse(pipelineID, StatusCode_OK, "")
+			submitted := PipelineCreateResult{
+				ResponseInfo: response,
+				ProgressInfo: Progress_SUBMITTED,
+				PipelineId:   pipelineID,
 			}
-			scores = append(scores, &score)
-		}
+			results[0] = &submitted
 
-		info := &PipelineCreated{
-			PredictResultUris: []string{"file://testdata/train_result.csv"},
-			Output:            request.Output,
-			Score:             scores,
-		}
-		completed := PipelineCreateResult{
-			ResponseInfo: response,
-			ProgressInfo: Progress_COMPLETE,
-			PipelineId:   pipelineID,
-			PipelineInfo: info,
-		}
-		results[2] = &completed
-
-		// loop to send results every n seconds
-		for i, result := range results {
-			log.Infof("Sending part %d", i)
-			if err := stream.Send(result); err != nil {
-				log.Error(err)
-				return err
+			// create a follow on running response
+			running := PipelineCreateResult{
+				ResponseInfo: response,
+				ProgressInfo: Progress_RUNNING,
+				PipelineId:   pipelineID,
 			}
-			time.Sleep(sendDelay)
-		}
+			results[1] = &running
+
+			// create a completed response
+
+			scores := []*Score{}
+			for _, metric := range request.GetMetric() {
+				score := Score{
+					Metric: metric,
+					Value:  1.0,
+				}
+				scores = append(scores, &score)
+			}
+
+			info := &PipelineCreated{
+				PredictResultUris: []string{"file://testdata/train_result.csv"},
+				Output:            request.Output,
+				Score:             scores,
+			}
+			completed := PipelineCreateResult{
+				ResponseInfo: response,
+				ProgressInfo: Progress_COMPLETE,
+				PipelineId:   pipelineID,
+				PipelineInfo: info,
+			}
+			results[2] = &completed
+
+			// Loop to send results every n seconds.
+			for i, result := range results {
+				log.Infof("Sending part %d", i)
+				if err := stream.Send(result); err != nil {
+					log.Error(err)
+					sendError = err
+				}
+				time.Sleep(sendDelay)
+			}
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 
-	return nil
+	return sendError
 }
 
-// ExecutePipeline sends a new pipeline execution request.
+// ExecutePipeline mocks a pipeline execution.
 func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream PipelineCompute_ExecutePipelineServer) error {
 	log.Infof("Received ExecutePipeline - %v", request)
 
 	// If the session ID doesn't exist return a single result flagging the error
 	// and close the stream.
 	sessionID := request.Context.GetSessionId()
-	if _, ok := s.sessionIDs[sessionID]; !ok {
+	if !s.sessionIDs.Has(sessionID) {
 		result := errorPipelineExecuteResult(StatusCode_SESSION_UNKNOWN, fmt.Sprintf("session %s does not exist", sessionID))
 		err := stream.Send(result)
 		if err != nil {
@@ -136,7 +148,7 @@ func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream Pipelin
 		}
 		return nil
 	}
-	if _, ok := s.endSessionIDs[sessionID]; ok {
+	if !s.endSessionIDs.Has(sessionID) {
 		result := errorPipelineExecuteResult(StatusCode_SESSION_ENDED, fmt.Sprintf("session %s already ended", sessionID))
 		err := stream.Send(result)
 		if err != nil {
@@ -147,7 +159,7 @@ func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream Pipelin
 	}
 
 	pipelineID := request.GetPipelineId()
-	if _, ok := s.pipelineIDs[pipelineID]; !ok {
+	if !s.pipelineIDs.Has(pipelineID) {
 		result := errorPipelineExecuteResult(StatusCode_INVALID_ARGUMENT, fmt.Sprintf("pipeline ID %s does not exist", pipelineID))
 		err := stream.Send(result)
 		if err != nil {
@@ -200,7 +212,7 @@ func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream Pipelin
 func (s *Server) StartSession(context.Context, *SessionRequest) (*Response, error) {
 	log.Info("Received StartSession")
 	id := uuid.NewV1().String()
-	s.sessionIDs[id] = true
+	s.sessionIDs.Add(id)
 	response := createResponse(id, StatusCode_OK, "")
 	return response, nil
 }
@@ -211,15 +223,15 @@ func (s *Server) EndSession(context context.Context, sessionContext *SessionCont
 	id := sessionContext.GetSessionId()
 	responseStr := ""
 	statusCode := StatusCode_OK
-	if _, ok := s.sessionIDs[id]; !ok {
+	if !s.sessionIDs.Has(id) {
 		responseStr = fmt.Sprintf("session %s does not exist", id)
 		statusCode = StatusCode_SESSION_UNKNOWN
-	} else if _, ok := s.endSessionIDs[id]; ok {
+	} else if s.endSessionIDs.Has(id) {
 		responseStr = fmt.Sprintf("session %s already ended", id)
 		statusCode = StatusCode_SESSION_ENDED
 	}
-	s.endSessionIDs[id] = true
-	delete(s.sessionIDs, id)
+	s.endSessionIDs.Add(id)
+	s.sessionIDs.Remove(id)
 	response := createResponse(id, statusCode, responseStr)
 	return response, nil
 }

@@ -1,19 +1,39 @@
 package pipeline
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
+	"io/ioutil"
 	"sync"
 	"time"
 
 	"github.com/fatih/set"
+	"github.com/golang/protobuf/proto"
+	protobuf "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/satori/go.uuid"
 	"github.com/unchartedsoftware/plog"
 	"golang.org/x/net/context"
 )
 
 const (
-	sendDelay = 5 * time.Second
+	sendDelay    = 5 * time.Second
+	versionUnset = "version_unset"
+
+	// UserAgent is a string identifying this application
+	UserAgent = "uncharted-ta2-test-server" // TODO: get a version tag embedded here
 )
+
+var version = versionUnset
+
+// Version is the version of the TA3-TA2 API extracted from the protobuf definition.  Lazily evaluated
+// since the protobuf init has to be complete before it can be used.  Doesn't change after initialization.
+func Version() string {
+	if version == versionUnset {
+		version = getAPIVersion()
+	}
+	return version
+}
 
 // Server represents a basic distil pipeline server.
 type Server struct {
@@ -72,16 +92,16 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Pipeline
 			// save the pipeline ID for subsequent calls
 			s.pipelineIDs.Add(pipelineID)
 
-			results := make([]*PipelineCreateResult, 3)
+			results := []*PipelineCreateResult{}
 
 			// create an initial submitted response
-			response := createResponse(pipelineID, StatusCode_OK, "")
+			response := createResponse(StatusCode_OK, "")
 			submitted := PipelineCreateResult{
 				ResponseInfo: response,
 				ProgressInfo: Progress_SUBMITTED,
 				PipelineId:   pipelineID,
 			}
-			results[0] = &submitted
+			results = append(results, &submitted)
 
 			// create a follow on running response
 			running := PipelineCreateResult{
@@ -89,31 +109,13 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Pipeline
 				ProgressInfo: Progress_RUNNING,
 				PipelineId:   pipelineID,
 			}
-			results[1] = &running
+			results = append(results, &running)
+
+			// create an updated response
+			results = append(results, createPipelineResult(request, response, pipelineID, Progress_UPDATED))
 
 			// create a completed response
-
-			scores := []*Score{}
-			for _, metric := range request.GetMetric() {
-				score := Score{
-					Metric: metric,
-					Value:  1.0,
-				}
-				scores = append(scores, &score)
-			}
-
-			info := &PipelineCreated{
-				PredictResultUris: []string{"file://testdata/train_result.csv"},
-				Output:            request.Output,
-				Score:             scores,
-			}
-			completed := PipelineCreateResult{
-				ResponseInfo: response,
-				ProgressInfo: Progress_COMPLETE,
-				PipelineId:   pipelineID,
-				PipelineInfo: info,
-			}
-			results[2] = &completed
+			results = append(results, createPipelineResult(request, response, pipelineID, Progress_COMPLETED))
 
 			// Loop to send results every n seconds.
 			for i, result := range results {
@@ -169,16 +171,16 @@ func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream Pipelin
 		return nil
 	}
 
-	results := make([]*PipelineExecuteResult, 3)
+	results := []*PipelineExecuteResult{}
 
 	// create an initial submitted response
-	response := createResponse(sessionID, StatusCode_OK, "")
+	response := createResponse(StatusCode_OK, "")
 	submitted := PipelineExecuteResult{
 		ResponseInfo: response,
 		ProgressInfo: Progress_SUBMITTED,
 		PipelineId:   pipelineID,
 	}
-	results[0] = &submitted
+	results = append(results, &submitted)
 
 	// create a follow on running response
 	running := PipelineExecuteResult{
@@ -186,15 +188,16 @@ func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream Pipelin
 		ProgressInfo: Progress_RUNNING,
 		PipelineId:   pipelineID,
 	}
-	results[1] = &running
+	results = append(results, &running)
 
+	// create a completed response
 	completed := PipelineExecuteResult{
 		ResponseInfo: response,
-		ProgressInfo: Progress_COMPLETE,
+		ProgressInfo: Progress_COMPLETED,
 		PipelineId:   pipelineID,
 		ResultUris:   []string{"file://testdata/predict_result.csv"},
 	}
-	results[2] = &completed
+	results = append(results, &completed)
 
 	// loop to send results with delay
 	for i, result := range results {
@@ -208,12 +211,43 @@ func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream Pipelin
 	return nil
 }
 
+// ListPipelines lists actively running pipelines for a session
+func (s *Server) ListPipelines(context context.Context, request *PipelineListRequest) (*PipelineListResult, error) {
+	result := &PipelineListResult{
+		ResponseInfo: createResponse(StatusCode_OK, ""),
+		PipelineIds:  set.StringSlice(s.pipelineIDs),
+	}
+	return result, nil
+}
+
+// GetCreatePipelineResults fetches create pipeline results for an actively running pipeline session
+func (s *Server) GetCreatePipelineResults(request *PipelineCreateResultsRequest, stream PipelineCompute_GetCreatePipelineResultsServer) error {
+	log.Warn("Not implemented")
+	return nil
+}
+
+// GetExecutePipelineResults fetches create pipeline results for an actively running pipeline session
+func (s *Server) GetExecutePipelineResults(request *PipelineExecuteResultsRequest, stream PipelineCompute_GetExecutePipelineResultsServer) error {
+	log.Warn("Not implemented")
+	return nil
+}
+
+// UpdateProblemSchema modfies the TA2 server's understanding of the problem schema
+func (s *Server) UpdateProblemSchema(context context.Context, request *UpdateProblemSchemaRequest) (*Response, error) {
+	return createResponse(StatusCode_OK, ""), nil
+}
+
 // StartSession creates a new session
-func (s *Server) StartSession(context.Context, *SessionRequest) (*Response, error) {
-	log.Info("Received StartSession")
+func (s *Server) StartSession(context context.Context, request *SessionRequest) (*SessionResponse, error) {
 	id := uuid.NewV1().String()
 	s.sessionIDs.Add(id)
-	response := createResponse(id, StatusCode_OK, "")
+	log.Infof("Received StartSession - API: [%s] User-Agent: [%s]", request.GetVersion(), request.GetUserAgent())
+
+	if request.GetVersion() != Version() {
+		log.Warnf("Client API version [%v] does not match expected version [%v]", request.GetVersion(), Version())
+	}
+
+	response := createSessionResponse(id, StatusCode_OK, "")
 	return response, nil
 }
 
@@ -232,15 +266,12 @@ func (s *Server) EndSession(context context.Context, sessionContext *SessionCont
 	}
 	s.endSessionIDs.Add(id)
 	s.sessionIDs.Remove(id)
-	response := createResponse(id, statusCode, responseStr)
+	response := createResponse(statusCode, responseStr)
 	return response, nil
 }
 
-func createResponse(id string, statusCode StatusCode, details string) *Response {
+func createResponse(statusCode StatusCode, details string) *Response {
 	response := &Response{
-		Context: &SessionContext{
-			SessionId: id,
-		},
 		Status: &Status{
 			Code:    statusCode,
 			Details: details,
@@ -249,12 +280,86 @@ func createResponse(id string, statusCode StatusCode, details string) *Response 
 	return response
 }
 
+func createSessionResponse(id string, statusCode StatusCode, details string) *SessionResponse {
+	response := &SessionResponse{
+		ResponseInfo: createResponse(statusCode, details),
+		UserAgent:    "uncharted_test_agent_0_3",
+		Version:      Version(),
+		Context: &SessionContext{
+			SessionId: id,
+		},
+	}
+	return response
+}
+
 func errorPipelineCreateResult(status StatusCode, msg string) *PipelineCreateResult {
-	response := createResponse("", status, msg)
+	response := createResponse(status, msg)
 	return &PipelineCreateResult{ResponseInfo: response}
 }
 
 func errorPipelineExecuteResult(status StatusCode, msg string) *PipelineExecuteResult {
-	response := createResponse("", status, msg)
+	response := createResponse(status, msg)
 	return &PipelineExecuteResult{ResponseInfo: response}
+}
+
+func createPipelineResult(request *PipelineCreateRequest, response *Response, pipelineID string, progress Progress) *PipelineCreateResult {
+	scores := []*Score{}
+	for _, metric := range request.GetMetrics() {
+		score := Score{
+			Metric: metric,
+			Value:  1.0,
+		}
+		scores = append(scores, &score)
+	}
+
+	pipeline := &Pipeline{
+		PredictResultUris: []string{"file://testdata/train_result.csv"},
+		Output:            request.GetOutput(),
+		Scores:            scores,
+	}
+
+	return &PipelineCreateResult{
+		ResponseInfo: response,
+		ProgressInfo: progress,
+		PipelineId:   pipelineID,
+		PipelineInfo: pipeline,
+	}
+}
+
+func getAPIVersion() string {
+	// Get the raw file descriptor bytes
+	fileDesc := proto.FileDescriptor(E_ProtocolVersion.Filename)
+	if fileDesc == nil {
+		log.Errorf("failed to find file descriptor for %v", E_ProtocolVersion.Filename)
+		return versionUnset
+	}
+
+	// Open a gzip reader and decompress
+	r, err := gzip.NewReader(bytes.NewReader(fileDesc))
+	if err != nil {
+		log.Errorf("failed to open gzip reader: %v", err)
+		return versionUnset
+	}
+	defer r.Close()
+
+	b, err := ioutil.ReadAll(r)
+	if err != nil {
+		log.Errorf("failed to decompress descriptor: %v", err)
+		return versionUnset
+	}
+
+	// Unmarshall the bytes from the proto format
+	fd := &protobuf.FileDescriptorProto{}
+	if err := proto.Unmarshal(b, fd); err != nil {
+		log.Errorf("malformed FileDescriptorProto: %v", err)
+		return versionUnset
+	}
+
+	// Fetch the extension from the FileDescriptorOptions message
+	ex, err := proto.GetExtension(fd.GetOptions(), E_ProtocolVersion)
+	if err != nil {
+		log.Errorf("failed to fetch extension: %v", err)
+		return versionUnset
+	}
+	return *ex.(*string)
 }

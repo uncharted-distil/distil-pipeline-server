@@ -19,20 +19,17 @@ import (
 const (
 	sendDelay    = 5 * time.Second
 	versionUnset = "version_unset"
-
-	// UserAgent is a string identifying this application
-	UserAgent = "uncharted-ta2-test-server" // TODO: get a version tag embedded here
 )
 
-var version = versionUnset
+var apiVersion = versionUnset
 
-// Version is the version of the TA3-TA2 API extracted from the protobuf definition.  Lazily evaluated
+// APIVersion is the version of the TA3-TA2 API extracted from the protobuf definition.  Lazily evaluated
 // since the protobuf init has to be complete before it can be used.  Doesn't change after initialization.
-func Version() string {
-	if version == versionUnset {
-		version = getAPIVersion()
+func APIVersion() string {
+	if apiVersion == versionUnset {
+		apiVersion = getAPIVersion()
 	}
-	return version
+	return apiVersion
 }
 
 // Server represents a basic distil pipeline server.
@@ -40,15 +37,17 @@ type Server struct {
 	sessionIDs    *set.Set
 	endSessionIDs *set.Set
 	pipelineIDs   *set.Set
+	userAgent     string
 }
 
 // NewServer creates a new pipeline server instance.  ID maps are initialized with place holder values
 // to support tests without explicit calls to session management.
-func NewServer() *Server {
+func NewServer(userAgent string) *Server {
 	server := new(Server)
 	server.sessionIDs = set.New("test-session-id")
 	server.endSessionIDs = set.New("test-end-session-id")
 	server.pipelineIDs = set.New("test-pipeline-id")
+	server.userAgent = userAgent
 	return server
 }
 
@@ -62,7 +61,7 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Pipeline
 	sessionID := request.Context.GetSessionId()
 	if !s.sessionIDs.Has(sessionID) {
 		log.Errorf("Session %s does not exist", sessionID)
-		err := stream.Send(errorPipelineCreateResult(StatusCode_SESSION_UNKNOWN, fmt.Sprintf("session %s does not exist", sessionID)))
+		err := stream.Send(newPipelineCreateResult(StatusCode_SESSION_UNKNOWN, fmt.Sprintf("session %s does not exist", sessionID)))
 		if err != nil {
 			log.Error(err)
 			return err
@@ -71,7 +70,7 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Pipeline
 	}
 	if s.endSessionIDs.Has(sessionID) {
 		log.Errorf("Session %s already closed", sessionID)
-		err := stream.Send(errorPipelineCreateResult(StatusCode_SESSION_ENDED, fmt.Sprintf("session %s already ended", sessionID)))
+		err := stream.Send(newPipelineCreateResult(StatusCode_SESSION_ENDED, fmt.Sprintf("session %s already ended", sessionID)))
 		if err != nil {
 			log.Error(err)
 			return err
@@ -95,7 +94,7 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Pipeline
 			results := []*PipelineCreateResult{}
 
 			// create an initial submitted response
-			response := createResponse(StatusCode_OK, "")
+			response := newResponse(StatusCode_OK, "")
 			submitted := PipelineCreateResult{
 				ResponseInfo: response,
 				ProgressInfo: Progress_SUBMITTED,
@@ -142,7 +141,7 @@ func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream Pipelin
 	// and close the stream.
 	sessionID := request.Context.GetSessionId()
 	if !s.sessionIDs.Has(sessionID) {
-		result := errorPipelineExecuteResult(StatusCode_SESSION_UNKNOWN, fmt.Sprintf("session %s does not exist", sessionID))
+		result := newPipelineExecuteResult(StatusCode_SESSION_UNKNOWN, fmt.Sprintf("session %s does not exist", sessionID))
 		err := stream.Send(result)
 		if err != nil {
 			log.Error(err)
@@ -151,7 +150,7 @@ func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream Pipelin
 		return nil
 	}
 	if !s.endSessionIDs.Has(sessionID) {
-		result := errorPipelineExecuteResult(StatusCode_SESSION_ENDED, fmt.Sprintf("session %s already ended", sessionID))
+		result := newPipelineExecuteResult(StatusCode_SESSION_ENDED, fmt.Sprintf("session %s already ended", sessionID))
 		err := stream.Send(result)
 		if err != nil {
 			log.Error(err)
@@ -162,7 +161,7 @@ func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream Pipelin
 
 	pipelineID := request.GetPipelineId()
 	if !s.pipelineIDs.Has(pipelineID) {
-		result := errorPipelineExecuteResult(StatusCode_INVALID_ARGUMENT, fmt.Sprintf("pipeline ID %s does not exist", pipelineID))
+		result := newPipelineExecuteResult(StatusCode_INVALID_ARGUMENT, fmt.Sprintf("pipeline ID %s does not exist", pipelineID))
 		err := stream.Send(result)
 		if err != nil {
 			log.Error(err)
@@ -174,7 +173,7 @@ func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream Pipelin
 	results := []*PipelineExecuteResult{}
 
 	// create an initial submitted response
-	response := createResponse(StatusCode_OK, "")
+	response := newResponse(StatusCode_OK, "")
 	submitted := PipelineExecuteResult{
 		ResponseInfo: response,
 		ProgressInfo: Progress_SUBMITTED,
@@ -214,7 +213,7 @@ func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream Pipelin
 // ListPipelines lists actively running pipelines for a session
 func (s *Server) ListPipelines(context context.Context, request *PipelineListRequest) (*PipelineListResult, error) {
 	result := &PipelineListResult{
-		ResponseInfo: createResponse(StatusCode_OK, ""),
+		ResponseInfo: newResponse(StatusCode_OK, ""),
 		PipelineIds:  set.StringSlice(s.pipelineIDs),
 	}
 	return result, nil
@@ -234,7 +233,7 @@ func (s *Server) GetExecutePipelineResults(request *PipelineExecuteResultsReques
 
 // UpdateProblemSchema modfies the TA2 server's understanding of the problem schema
 func (s *Server) UpdateProblemSchema(context context.Context, request *UpdateProblemSchemaRequest) (*Response, error) {
-	return createResponse(StatusCode_OK, ""), nil
+	return newResponse(StatusCode_OK, ""), nil
 }
 
 // StartSession creates a new session
@@ -243,11 +242,11 @@ func (s *Server) StartSession(context context.Context, request *SessionRequest) 
 	s.sessionIDs.Add(id)
 	log.Infof("Received StartSession - API: [%s] User-Agent: [%s]", request.GetVersion(), request.GetUserAgent())
 
-	if request.GetVersion() != Version() {
-		log.Warnf("Client API version [%v] does not match expected version [%v]", request.GetVersion(), Version())
+	if request.GetVersion() != APIVersion() {
+		log.Warnf("Client API version [%v] does not match expected version [%v]", request.GetVersion(), APIVersion())
 	}
 
-	response := createSessionResponse(id, StatusCode_OK, "")
+	response := newSessionResponse(id, StatusCode_OK, "", APIVersion(), s.userAgent)
 	return response, nil
 }
 
@@ -266,11 +265,11 @@ func (s *Server) EndSession(context context.Context, sessionContext *SessionCont
 	}
 	s.endSessionIDs.Add(id)
 	s.sessionIDs.Remove(id)
-	response := createResponse(statusCode, responseStr)
+	response := newResponse(statusCode, responseStr)
 	return response, nil
 }
 
-func createResponse(statusCode StatusCode, details string) *Response {
+func newResponse(statusCode StatusCode, details string) *Response {
 	response := &Response{
 		Status: &Status{
 			Code:    statusCode,
@@ -280,11 +279,11 @@ func createResponse(statusCode StatusCode, details string) *Response {
 	return response
 }
 
-func createSessionResponse(id string, statusCode StatusCode, details string) *SessionResponse {
+func newSessionResponse(id string, statusCode StatusCode, details string, userAgent string, version string) *SessionResponse {
 	response := &SessionResponse{
-		ResponseInfo: createResponse(statusCode, details),
-		UserAgent:    "uncharted_test_agent_0_3",
-		Version:      Version(),
+		ResponseInfo: newResponse(statusCode, details),
+		UserAgent:    userAgent,
+		Version:      version,
 		Context: &SessionContext{
 			SessionId: id,
 		},
@@ -292,13 +291,13 @@ func createSessionResponse(id string, statusCode StatusCode, details string) *Se
 	return response
 }
 
-func errorPipelineCreateResult(status StatusCode, msg string) *PipelineCreateResult {
-	response := createResponse(status, msg)
+func newPipelineCreateResult(status StatusCode, msg string) *PipelineCreateResult {
+	response := newResponse(status, msg)
 	return &PipelineCreateResult{ResponseInfo: response}
 }
 
-func errorPipelineExecuteResult(status StatusCode, msg string) *PipelineExecuteResult {
-	response := createResponse(status, msg)
+func newPipelineExecuteResult(status StatusCode, msg string) *PipelineExecuteResult {
+	response := newResponse(status, msg)
 	return &PipelineExecuteResult{ResponseInfo: response}
 }
 

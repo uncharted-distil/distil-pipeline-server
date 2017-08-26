@@ -4,4 +4,4 @@
 env CGO_ENABLED=0 env GOOS=linux GOARCH=amd64 go build ..
 
 # builds distil docker image
-docker build -t docker.uncharted.software/distil-pipeline-server:0.3 -t docker.uncharted.software/distil-pipeline-server:latest ..
+docker build -t docker.uncharted.software/distil-pipeline-server:0.4.0 -t docker.uncharted.software/distil-pipeline-server:latest ..

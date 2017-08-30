@@ -5,7 +5,9 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -20,6 +22,7 @@ import (
 const (
 	sendDelay    = 5 * time.Second
 	versionUnset = "version_unset"
+	resultPath   = "results"
 )
 
 var apiVersion = versionUnset
@@ -322,15 +325,35 @@ func createPipelineResult(request *PipelineCreateRequest, response *Response, pi
 		scores = append(scores, &score)
 	}
 
+	// create stub data generators based on task
+	var generator func() string
+	if request.GetTask() == TaskType_CLASSIFICATION {
+		generator = func() string {
+			if rand.Float32() > 0.5 {
+				return "1"
+			}
+			return "0"
+		}
+	} else if request.GetTask() == TaskType_REGRESSION {
+		generator = func() string {
+			return strconv.FormatFloat(rand.Float64(), 'f', 4, 64)
+		}
+	} else {
+		err := fmt.Errorf("unhandled task type %s", request.GetTask())
+		log.Error(err)
+		return nil, err
+	}
+
+	// generate and persist mock result csv
 	trainPath := request.GetTrainFeatures()[0].GetDataUri()
 	targetFeature := request.GetTargetFeatures()[0].GetFeatureId()
-	resultPath, err := generateResultCsv(trainPath, "./results", targetFeature, func() string { return "test" })
+	resultDir, err := generateResultCsv(pipelineID, trainPath, resultPath, targetFeature, generator)
 	if err != nil {
 		log.Errorf("Failed to generate results: %s", err)
 		return nil, err
 	}
 
-	resultPath, err = filepath.Abs(resultPath)
+	resultPath, err := filepath.Abs(resultDir)
 	if err != nil {
 		log.Errorf("Failed to generate absolute path: %s", err)
 		return nil, err

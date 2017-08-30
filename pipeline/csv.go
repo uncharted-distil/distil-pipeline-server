@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 )
 
 func loadTrainCsv(dirName string) ([][]string, error) {
+	// load training data from the supplied directory
 	f, err := os.Open(path.Join(dirName, "trainData.csv"))
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close() // this needs to be after the err check
+	defer f.Close()
 
 	lines, err := csv.NewReader(f).ReadAll()
 	if err != nil {
@@ -23,19 +23,21 @@ func loadTrainCsv(dirName string) ([][]string, error) {
 	return lines, nil
 }
 
-func writeResultCsv(path string, data [][]string) error {
-	// create a result directory
-	err := os.MkdirAll(filepath.Dir(path), 0700)
+func writeResultCsv(resultPath string, data [][]string) error {
+	// create result directory if necessary
+	err := os.MkdirAll(path.Dir(resultPath), 0700)
 	if err != nil {
 		return err
 	}
 
-	file, err := os.Create(path)
+	// create the result file
+	file, err := os.Create(resultPath)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
+	// write teh result into it and close
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
@@ -49,20 +51,26 @@ func writeResultCsv(path string, data [][]string) error {
 	return nil
 }
 
-func generateResultCsv(trainDirName string, resultDirName string, targetFeature string, resultGenerator func() string) (string, error) {
-	// load training data so we can get the number records
+func generateResultCsv(
+	pipelineID string,
+	trainDirName string,
+	resultDirName string,
+	targetFeature string,
+	resultGenerator func() string,
+) (string, error) {
+	// load training data - just use it to get count for now
 	records, err := loadTrainCsv(trainDirName)
 	if err != nil {
 		return "", err
 	}
 
-	// generate results
+	// generate mock results
 	result := [][]string{{"d3m_index", targetFeature}}
 	for i := 0; i < len(records); i++ {
 		result = append(result, []string{strconv.Itoa(i), resultGenerator()})
 	}
 
 	// write results out to disk
-	path := path.Join(resultDirName, fmt.Sprintf("%s.csv", targetFeature))
+	path := path.Join(resultDirName, fmt.Sprintf("%s.csv", pipelineID))
 	return path, writeResultCsv(path, result)
 }

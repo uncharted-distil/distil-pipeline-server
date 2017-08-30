@@ -256,7 +256,7 @@ func (s *Server) StartSession(context context.Context, request *SessionRequest) 
 		log.Warnf("Client API version [%v] does not match expected version [%v]", request.GetVersion(), APIVersion())
 	}
 
-	response := newSessionResponse(id, StatusCode_OK, "", APIVersion(), s.userAgent)
+	response := newSessionResponse(id, StatusCode_OK, "", s.userAgent, APIVersion())
 	return response, nil
 }
 

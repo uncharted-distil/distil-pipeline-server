@@ -111,10 +111,20 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Pipeline
 			results = append(results, &running)
 
 			// create an updated response
-			results = append(results, createPipelineResult(request, response, pipelineID, Progress_UPDATED))
+			updated, err := createPipelineResult(request, response, pipelineID, Progress_UPDATED)
+			if err != nil {
+				sendError = err
+				return
+			}
+			results = append(results, updated)
 
 			// create a completed response
-			results = append(results, createPipelineResult(request, response, pipelineID, Progress_COMPLETED))
+			completed, err := createPipelineResult(request, response, pipelineID, Progress_COMPLETED)
+			if err != nil {
+				sendError = err
+				return
+			}
+			results = append(results, completed)
 
 			// Loop to send results every n seconds.
 			for i, result := range results {
@@ -301,7 +311,7 @@ func newPipelineExecuteResult(status StatusCode, msg string) *PipelineExecuteRes
 	return &PipelineExecuteResult{ResponseInfo: response}
 }
 
-func createPipelineResult(request *PipelineCreateRequest, response *Response, pipelineID string, progress Progress) *PipelineCreateResult {
+func createPipelineResult(request *PipelineCreateRequest, response *Response, pipelineID string, progress Progress) (*PipelineCreateResult, error) {
 	scores := []*Score{}
 	for _, metric := range request.GetMetrics() {
 		score := Score{
@@ -311,8 +321,15 @@ func createPipelineResult(request *PipelineCreateRequest, response *Response, pi
 		scores = append(scores, &score)
 	}
 
+	trainPath := request.GetTrainFeatures()[0].GetDataUri()
+	resultDir, err := generateResultCsv(trainPath, "./results", request.GetTargetFeatures()[0].GetFeatureId(), func() string { return "test" })
+	if err != nil {
+		log.Errorf("Failed to generate results: %s", err)
+		return nil, err
+	}
+
 	pipeline := &Pipeline{
-		PredictResultUris: []string{"file://testdata/train_result.csv"},
+		PredictResultUris: []string{fmt.Sprintf("file://%s", resultDir)},
 		Output:            request.GetOutput(),
 		Scores:            scores,
 	}
@@ -322,7 +339,7 @@ func createPipelineResult(request *PipelineCreateRequest, response *Response, pi
 		ProgressInfo: progress,
 		PipelineId:   pipelineID,
 		PipelineInfo: pipeline,
-	}
+	}, nil
 }
 
 func getAPIVersion() string {

@@ -115,7 +115,7 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Pipeline
 			results = append(results, &running)
 
 			// create an updated response
-			updated, err := createPipelineResult(request, response, pipelineID, Progress_UPDATED)
+			updated, err := createPipelineResult(request, response, pipelineID, Progress_UPDATED, 0)
 			if err != nil {
 				sendError = err
 				return
@@ -123,7 +123,7 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Pipeline
 			results = append(results, updated)
 
 			// create a completed response
-			completed, err := createPipelineResult(request, response, pipelineID, Progress_COMPLETED)
+			completed, err := createPipelineResult(request, response, pipelineID, Progress_COMPLETED, 1)
 			if err != nil {
 				sendError = err
 				return
@@ -315,7 +315,13 @@ func newPipelineExecuteResult(status StatusCode, msg string) *PipelineExecuteRes
 	return &PipelineExecuteResult{ResponseInfo: response}
 }
 
-func createPipelineResult(request *PipelineCreateRequest, response *Response, pipelineID string, progress Progress) (*PipelineCreateResult, error) {
+func createPipelineResult(
+	request *PipelineCreateRequest,
+	response *Response,
+	pipelineID string,
+	progress Progress,
+	seqNum int,
+) (*PipelineCreateResult, error) {
 	scores := []*Score{}
 	for _, metric := range request.GetMetrics() {
 		score := Score{
@@ -347,7 +353,7 @@ func createPipelineResult(request *PipelineCreateRequest, response *Response, pi
 	// generate and persist mock result csv
 	trainPath := request.GetTrainFeatures()[0].GetDataUri()
 	targetFeature := request.GetTargetFeatures()[0].GetFeatureId()
-	resultDir, err := generateResultCsv(pipelineID, trainPath, resultPath, targetFeature, generator)
+	resultDir, err := generateResultCsv(pipelineID, seqNum, trainPath, resultPath, targetFeature, generator)
 	if err != nil {
 		log.Errorf("Failed to generate results: %s", err)
 		return nil, err

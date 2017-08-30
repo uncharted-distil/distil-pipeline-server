@@ -53,6 +53,7 @@ func writeResultCsv(resultPath string, data [][]string) error {
 
 func generateResultCsv(
 	pipelineID string,
+	seqNum int,
 	trainDirName string,
 	resultDirName string,
 	targetFeature string,
@@ -71,6 +72,6 @@ func generateResultCsv(
 	}
 
 	// write results out to disk
-	path := path.Join(resultDirName, fmt.Sprintf("%s.csv", pipelineID))
+	path := path.Join(resultDirName, fmt.Sprintf("%s-%d.csv", pipelineID, seqNum))
 	return path, writeResultCsv(path, result)
 }

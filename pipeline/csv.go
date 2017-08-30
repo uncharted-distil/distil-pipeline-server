@@ -2,8 +2,11 @@ package pipeline
 
 import (
 	"encoding/csv"
+	"fmt"
 	"os"
 	"path"
+	"path/filepath"
+	"strconv"
 )
 
 func loadTrainCsv(dirName string) ([][]string, error) {
@@ -21,6 +24,12 @@ func loadTrainCsv(dirName string) ([][]string, error) {
 }
 
 func writeResultCsv(path string, data [][]string) error {
+	// create a result directory
+	err := os.MkdirAll(filepath.Dir(path), 0700)
+	if err != nil {
+		return err
+	}
+
 	file, err := os.Create(path)
 	if err != nil {
 		return err
@@ -41,16 +50,19 @@ func writeResultCsv(path string, data [][]string) error {
 }
 
 func generateResultCsv(trainDirName string, resultDirName string, targetFeature string, resultGenerator func() string) (string, error) {
-	resultDir := path.Join(resultDirName, targetFeature)
+	// load training data so we can get the number records
 	records, err := loadTrainCsv(trainDirName)
 	if err != nil {
 		return "", err
 	}
 
+	// generate results
 	result := [][]string{{"d3m_index", targetFeature}}
 	for i := 0; i < len(records); i++ {
-		result = append(result, []string{string(i), resultGenerator()})
+		result = append(result, []string{strconv.Itoa(i), resultGenerator()})
 	}
 
-	return resultDir, writeResultCsv(resultDir, result)
+	// write results out to disk
+	path := path.Join(resultDirName, fmt.Sprintf("%s.csv", targetFeature))
+	return path, writeResultCsv(path, result)
 }

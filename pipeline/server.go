@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -322,14 +323,21 @@ func createPipelineResult(request *PipelineCreateRequest, response *Response, pi
 	}
 
 	trainPath := request.GetTrainFeatures()[0].GetDataUri()
-	resultDir, err := generateResultCsv(trainPath, "./results", request.GetTargetFeatures()[0].GetFeatureId(), func() string { return "test" })
+	targetFeature := request.GetTargetFeatures()[0].GetFeatureId()
+	resultPath, err := generateResultCsv(trainPath, "./results", targetFeature, func() string { return "test" })
 	if err != nil {
 		log.Errorf("Failed to generate results: %s", err)
 		return nil, err
 	}
 
+	resultPath, err = filepath.Abs(resultPath)
+	if err != nil {
+		log.Errorf("Failed to generate absolute path: %s", err)
+		return nil, err
+	}
+
 	pipeline := &Pipeline{
-		PredictResultUris: []string{fmt.Sprintf("file://%s", resultDir)},
+		PredictResultUris: []string{resultPath},
 		Output:            request.GetOutput(),
 		Scores:            scores,
 	}

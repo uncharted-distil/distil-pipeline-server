@@ -5,6 +5,9 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
+	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -19,6 +22,7 @@ import (
 const (
 	sendDelay    = 5 * time.Second
 	versionUnset = "version_unset"
+	resultPath   = "results"
 )
 
 var apiVersion = versionUnset
@@ -111,10 +115,20 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Pipeline
 			results = append(results, &running)
 
 			// create an updated response
-			results = append(results, createPipelineResult(request, response, pipelineID, Progress_UPDATED))
+			updated, err := createPipelineResult(request, response, pipelineID, Progress_UPDATED, 0)
+			if err != nil {
+				sendError = err
+				return
+			}
+			results = append(results, updated)
 
 			// create a completed response
-			results = append(results, createPipelineResult(request, response, pipelineID, Progress_COMPLETED))
+			completed, err := createPipelineResult(request, response, pipelineID, Progress_COMPLETED, 1)
+			if err != nil {
+				sendError = err
+				return
+			}
+			results = append(results, completed)
 
 			// Loop to send results every n seconds.
 			for i, result := range results {
@@ -246,7 +260,7 @@ func (s *Server) StartSession(context context.Context, request *SessionRequest) 
 		log.Warnf("Client API version [%v] does not match expected version [%v]", request.GetVersion(), APIVersion())
 	}
 
-	response := newSessionResponse(id, StatusCode_OK, "", APIVersion(), s.userAgent)
+	response := newSessionResponse(id, StatusCode_OK, "", s.userAgent, APIVersion())
 	return response, nil
 }
 
@@ -301,7 +315,13 @@ func newPipelineExecuteResult(status StatusCode, msg string) *PipelineExecuteRes
 	return &PipelineExecuteResult{ResponseInfo: response}
 }
 
-func createPipelineResult(request *PipelineCreateRequest, response *Response, pipelineID string, progress Progress) *PipelineCreateResult {
+func createPipelineResult(
+	request *PipelineCreateRequest,
+	response *Response,
+	pipelineID string,
+	progress Progress,
+	seqNum int,
+) (*PipelineCreateResult, error) {
 	scores := []*Score{}
 	for _, metric := range request.GetMetrics() {
 		score := Score{
@@ -311,8 +331,42 @@ func createPipelineResult(request *PipelineCreateRequest, response *Response, pi
 		scores = append(scores, &score)
 	}
 
+	// create stub data generators based on task
+	var generator func() string
+	if request.GetTask() == TaskType_CLASSIFICATION {
+		generator = func() string {
+			if rand.Float32() > 0.5 {
+				return "1"
+			}
+			return "0"
+		}
+	} else if request.GetTask() == TaskType_REGRESSION {
+		generator = func() string {
+			return strconv.FormatFloat(rand.Float64(), 'f', 4, 64)
+		}
+	} else {
+		err := fmt.Errorf("unhandled task type %s", request.GetTask())
+		log.Error(err)
+		return nil, err
+	}
+
+	// generate and persist mock result csv
+	trainPath := request.GetTrainFeatures()[0].GetDataUri()
+	targetFeature := request.GetTargetFeatures()[0].GetFeatureId()
+	resultDir, err := generateResultCsv(pipelineID, seqNum, trainPath, resultPath, targetFeature, generator)
+	if err != nil {
+		log.Errorf("Failed to generate results: %s", err)
+		return nil, err
+	}
+
+	resultPath, err := filepath.Abs(resultDir)
+	if err != nil {
+		log.Errorf("Failed to generate absolute path: %s", err)
+		return nil, err
+	}
+
 	pipeline := &Pipeline{
-		PredictResultUris: []string{"file://testdata/train_result.csv"},
+		PredictResultUris: []string{resultPath},
 		Output:            request.GetOutput(),
 		Scores:            scores,
 	}
@@ -322,7 +376,7 @@ func createPipelineResult(request *PipelineCreateRequest, response *Response, pi
 		ProgressInfo: progress,
 		PipelineId:   pipelineID,
 		PipelineInfo: pipeline,
-	}
+	}, nil
 }
 
 func getAPIVersion() string {

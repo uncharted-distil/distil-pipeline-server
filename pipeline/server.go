@@ -22,7 +22,6 @@ import (
 const (
 	sendDelay    = 5 * time.Second
 	versionUnset = "version_unset"
-	resultPath   = "results"
 )
 
 var apiVersion = versionUnset
@@ -42,16 +41,18 @@ type Server struct {
 	endSessionIDs *set.Set
 	pipelineIDs   *set.Set
 	userAgent     string
+	resultDir     string
 }
 
 // NewServer creates a new pipeline server instance.  ID maps are initialized with place holder values
 // to support tests without explicit calls to session management.
-func NewServer(userAgent string) *Server {
+func NewServer(userAgent string, resultDir string) *Server {
 	server := new(Server)
 	server.sessionIDs = set.New("test-session-id")
 	server.endSessionIDs = set.New("test-end-session-id")
 	server.pipelineIDs = set.New("test-pipeline-id")
 	server.userAgent = userAgent
+	server.resultDir = resultDir
 	return server
 }
 
@@ -115,7 +116,7 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Pipeline
 			results = append(results, &running)
 
 			// create an updated response
-			updated, err := createPipelineResult(request, response, pipelineID, Progress_UPDATED, 0)
+			updated, err := createPipelineResult(request, response, pipelineID, Progress_UPDATED, 0, s.resultDir)
 			if err != nil {
 				sendError = err
 				return
@@ -123,7 +124,7 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Pipeline
 			results = append(results, updated)
 
 			// create a completed response
-			completed, err := createPipelineResult(request, response, pipelineID, Progress_COMPLETED, 1)
+			completed, err := createPipelineResult(request, response, pipelineID, Progress_COMPLETED, 1, s.resultDir)
 			if err != nil {
 				sendError = err
 				return
@@ -321,6 +322,7 @@ func createPipelineResult(
 	pipelineID string,
 	progress Progress,
 	seqNum int,
+	resultPath string,
 ) (*PipelineCreateResult, error) {
 	scores := []*Score{}
 	for _, metric := range request.GetMetrics() {
@@ -359,14 +361,14 @@ func createPipelineResult(
 		return nil, err
 	}
 
-	resultPath, err := filepath.Abs(resultDir)
+	absResultDir, err := filepath.Abs(resultDir)
 	if err != nil {
 		log.Errorf("Failed to generate absolute path: %s", err)
 		return nil, err
 	}
 
 	pipeline := &Pipeline{
-		PredictResultUris: []string{resultPath},
+		PredictResultUris: []string{absResultDir},
 		Output:            request.GetOutput(),
 		Scores:            scores,
 	}

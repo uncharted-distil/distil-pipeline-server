@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	defPort = ":9500"
+	defPort      = ":9500"
+	defResultDir = "./results"
 )
 
 var (
@@ -21,6 +22,12 @@ var (
 )
 
 func main() {
+	// fetch the result dir
+	resultDir := os.Getenv("PIPELINE_SERVER_RESULT_DIR")
+	if resultDir == "" {
+		resultDir = defResultDir
+	}
+
 	// fetch the port to listen on
 	port := os.Getenv("PIPELINE_SERVER_PORT")
 	if port == "" {
@@ -33,7 +40,8 @@ func main() {
 	// generate a user agent string based on version info
 	userAgent := fmt.Sprintf("uncharted-test-ta2-%s-%s", version, timestamp)
 
-	log.Info(userAgent)
+	log.Infof(userAgent)
+	log.Infof("result directory: %s", resultDir)
 	log.Infof("listening on %s", port)
 
 	lis, err := net.Listen("tcp", defPort)
@@ -42,6 +50,6 @@ func main() {
 	}
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
-	pipeline.RegisterPipelineComputeServer(grpcServer, pipeline.NewServer(userAgent))
+	pipeline.RegisterPipelineComputeServer(grpcServer, pipeline.NewServer(userAgent, resultDir))
 	grpcServer.Serve(lis)
 }

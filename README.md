@@ -22,14 +22,24 @@ Install dependencies:
 cd distil-pipeline-server
 make install
 ```
-Install protocol buffer compiler:
+
+Build, watch, and run server:
+```bash
+make watch
+```
+
+
+## Generating GRPC/Protobuf Source
+
+If changes are made to the `*.proto` files that requires source to be re-generated, install protocol buffer compiler:
 
 Linux
 
 ```bash
 curl -OL https://github.com/google/protobuf/releases/download/v3.3.0/protoc-3.3.0-linux-x86_64.zip
 unzip protoc-3.3.0-linux-x86_64.zip -d protoc3
-sudo mv protoc3/bin/protoc /usr/bin/protoc
+sudo cp protoc3/bin/protoc /usr/bin/protoc
+sudo cp -r protoc3/include /usr/local
 ```
 
 OSX
@@ -37,17 +47,13 @@ OSX
 ```bash
 curl -OL https://github.com/google/protobuf/releases/download/v3.3.0/protoc-3.3.0-osx-x86_64.zip
 unzip protoc-3.3.0-osx-x86_64.zip -d protoc3
-sudo mv protoc3/bin/protoc /usr/bin/protoc
+sudo cp protoc3/bin/protoc /usr/bin/protoc
+sudo cp -r protoc3/include /usr/local
 ```
 
 Generate GRPC source from proto definition:
 ```base
 make proto
-```
-
-Build, watch, and run server:
-```bash
-make watch
 ```
 
 ## Docker Deployment

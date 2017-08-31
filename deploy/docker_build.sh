@@ -1,7 +1,10 @@
 #!/bin/bash
 
 # get veldt-ingest and force a static rebuild of it so that it can run on Alpine
-env CGO_ENABLED=0 env GOOS=linux GOARCH=amd64 go build ..
+cd ..
+make build_static
+mv distil-pipeline-server deploy
+cd deploy
 
 # builds distil docker image
 docker build -t docker.uncharted.software/distil-pipeline-server:0.4.1 -t docker.uncharted.software/distil-pipeline-server:latest ..

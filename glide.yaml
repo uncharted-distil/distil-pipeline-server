@@ -1,4 +1,4 @@
-package: github.com/unchartedsoftware/distil-pipeline-server
+package: github.com/unchartedsoftware/ta2-server
 import:
 - package: github.com/pkg/errors
 - package: github.com/unchartedsoftware/plog

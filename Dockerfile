@@ -1,11 +1,11 @@
 FROM alpine:3.5
 
-RUN mkdir /distil-pipeline-server
+RUN mkdir /ta2-server
 
-WORKDIR /distil-pipeline-server
+WORKDIR /ta2-server
 
-COPY ./deploy/distil-pipeline-server .
+COPY ./deploy/ta2-server .
 
 EXPOSE 9500
 
-ENTRYPOINT ./distil-pipeline-server
+ENTRYPOINT ./ta2-server

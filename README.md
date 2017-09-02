@@ -1,25 +1,26 @@
-# distil-pipeline-server
+# ta2-server
 
 Provides a stub server for testing Distil GRPC calls.
 
 ## Dependencies
 
 - [Go](https://golang.org/) programming language binaries with the `GOPATH` environment variable specified and `$GOPATH/bin` in your `PATH`.
+- [Docker](https://wwww.docker.com) container platform.
 
 ## Development
 
 Clone the repository:
 
 ```bash
-mkdir -p $GOPATH/src/github.com/unchartedsoftware
-cd $GOPATH/src/github.com/unchartedsoftware
-git clone git@github.com:unchartedsoftware/distil-pipeline-server.git
+mkdir -p $GOPATH/src/gitlab.datadrivendiscovery.org/uncharted
+cd $GOPATH/src/gitlab.datadrivendiscovery.org/uncharted
+git clone gitlab.datadrivendiscovery.org/uncharted/ta2-server
 ```
 
 Install dependencies:
 
 ```bash
-cd distil-pipeline-server
+cd ta2-server
 make install
 ```
 

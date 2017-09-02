@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/unchartedsoftware/distil-pipeline-server/pipeline"
 	"github.com/unchartedsoftware/plog"
+	"gitlab.datadrivendiscovery.org/uncharted/ta2-server/pipeline"
 	"google.golang.org/grpc"
 )
 

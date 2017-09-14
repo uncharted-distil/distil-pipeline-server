@@ -44,6 +44,16 @@ type Server struct {
 	resultDir     string
 }
 
+// StatusErr provides an status code and an error message
+type StatusErr struct {
+	Status   StatusCode
+	ErrorMsg string
+}
+
+func (s *StatusErr) Error() string {
+	return s.ErrorMsg
+}
+
 // NewServer creates a new pipeline server instance.  ID maps are initialized with place holder values
 // to support tests without explicit calls to session management.
 func NewServer(userAgent string, resultDir string) *Server {
@@ -57,30 +67,21 @@ func NewServer(userAgent string, resultDir string) *Server {
 }
 
 // CreatePipelines will create a mocked pipeline.
-func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream PipelineCompute_CreatePipelinesServer) error {
+func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Core_CreatePipelinesServer) error {
 
 	log.Infof("Received CreatePipelines - %v", request)
 
 	// If the session ID doesn't exist return a single result flagging the error
 	// and close the stream.
 	sessionID := request.Context.GetSessionId()
-	if !s.sessionIDs.Has(sessionID) {
-		log.Errorf("Session %s does not exist", sessionID)
-		err := stream.Send(newPipelineCreateResult(StatusCode_SESSION_UNKNOWN, fmt.Sprintf("session %s does not exist", sessionID)))
+	err := s.validateSession(sessionID)
+	if err != nil {
+		log.Error(err.Error())
+		err := stream.Send(newPipelineCreateResult(err.Status, err.Error()))
 		if err != nil {
-			log.Error(err)
-			return err
+			log.Error(err.Error())
 		}
-		return nil
-	}
-	if s.endSessionIDs.Has(sessionID) {
-		log.Errorf("Session %s already closed", sessionID)
-		err := stream.Send(newPipelineCreateResult(StatusCode_SESSION_ENDED, fmt.Sprintf("session %s already ended", sessionID)))
-		if err != nil {
-			log.Error(err)
-			return err
-		}
-		return nil
+		return err
 	}
 
 	wg := sync.WaitGroup{}
@@ -149,29 +150,20 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Pipeline
 }
 
 // ExecutePipeline mocks a pipeline execution.
-func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream PipelineCompute_ExecutePipelineServer) error {
+func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream Core_ExecutePipelineServer) error {
 	log.Infof("Received ExecutePipeline - %v", request)
 
 	// If the session ID doesn't exist return a single result flagging the error
 	// and close the stream.
 	sessionID := request.Context.GetSessionId()
-	if !s.sessionIDs.Has(sessionID) {
-		result := newPipelineExecuteResult(StatusCode_SESSION_UNKNOWN, fmt.Sprintf("session %s does not exist", sessionID))
-		err := stream.Send(result)
+	err := s.validateSession(sessionID)
+	if err != nil {
+		log.Error(err.Error())
+		err := stream.Send(newPipelineExecuteResult(err.Status, err.Error()))
 		if err != nil {
-			log.Error(err)
-			return err
+			log.Error(err.Error())
 		}
-		return nil
-	}
-	if !s.endSessionIDs.Has(sessionID) {
-		result := newPipelineExecuteResult(StatusCode_SESSION_ENDED, fmt.Sprintf("session %s already ended", sessionID))
-		err := stream.Send(result)
-		if err != nil {
-			log.Error(err)
-			return err
-		}
-		return nil
+		return err
 	}
 
 	pipelineID := request.GetPipelineId()
@@ -227,21 +219,69 @@ func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream Pipelin
 
 // ListPipelines lists actively running pipelines for a session
 func (s *Server) ListPipelines(context context.Context, request *PipelineListRequest) (*PipelineListResult, error) {
+	var response *Response
+	sessionID := request.Context.GetSessionId()
+	err := s.validateSession(sessionID)
+	if err != nil {
+		log.Error(err.Error())
+		response = newResponse(err.Status, err.Error())
+	} else {
+		response = newResponse(StatusCode_OK, "")
+	}
+
 	result := &PipelineListResult{
-		ResponseInfo: newResponse(StatusCode_OK, ""),
+		ResponseInfo: response,
 		PipelineIds:  set.StringSlice(s.pipelineIDs),
 	}
 	return result, nil
 }
 
+// DeletePipelines deletes a set of running pipelines
+func (s *Server) DeletePipelines(context context.Context, request *PipelineDeleteRequest) (*PipelineListResult, error) {
+	var response *Response
+	sessionID := request.Context.GetSessionId()
+	err := s.validateSession(sessionID)
+	if err != nil {
+		log.Error(err.Error())
+		response = newResponse(err.Status, err.Error())
+	} else {
+		response = newResponse(StatusCode_OK, "")
+	}
+
+	// add any that are currently running to the delete list
+	deleted := []string{}
+	for _, id := range request.DeletePipelineIds {
+		if s.pipelineIDs.Has(id) {
+			deleted = append(deleted, id)
+		}
+	}
+
+	result := &PipelineListResult{
+		ResponseInfo: response,
+		PipelineIds:  deleted,
+	}
+	return result, nil
+}
+
+// ExportPipeline request that the TA2 system export the current pipeline
+func (s *Server) ExportPipeline(contex context.Context, request *PipelineExportRequest) (*Response, error) {
+	sessionID := request.Context.GetSessionId()
+	err := s.validateSession(sessionID)
+	if err != nil {
+		log.Error(err.Error())
+		return newResponse(err.Status, err.Error()), nil
+	}
+	return newResponse(StatusCode_OK, ""), nil
+}
+
 // GetCreatePipelineResults fetches create pipeline results for an actively running pipeline session
-func (s *Server) GetCreatePipelineResults(request *PipelineCreateResultsRequest, stream PipelineCompute_GetCreatePipelineResultsServer) error {
+func (s *Server) GetCreatePipelineResults(request *PipelineCreateResultsRequest, stream Core_GetCreatePipelineResultsServer) error {
 	log.Warn("Not implemented")
 	return nil
 }
 
 // GetExecutePipelineResults fetches create pipeline results for an actively running pipeline session
-func (s *Server) GetExecutePipelineResults(request *PipelineExecuteResultsRequest, stream PipelineCompute_GetExecutePipelineResultsServer) error {
+func (s *Server) GetExecutePipelineResults(request *PipelineExecuteResultsRequest, stream Core_GetExecutePipelineResultsServer) error {
 	log.Warn("Not implemented")
 	return nil
 }
@@ -417,4 +457,22 @@ func getAPIVersion() string {
 		return versionUnset
 	}
 	return *ex.(*string)
+}
+
+func (s *Server) validateSession(sessionID string) *StatusErr {
+	// If the session ID doesn't exist return a single result flagging the error
+	// and close the stream.
+	if !s.sessionIDs.Has(sessionID) {
+		return &StatusErr{
+			Status:   StatusCode_SESSION_UNKNOWN,
+			ErrorMsg: fmt.Sprintf("session %s does not exist", sessionID),
+		}
+	}
+	if s.endSessionIDs.Has(sessionID) {
+		return &StatusErr{
+			Status:   StatusCode_SESSION_EXPIRED,
+			ErrorMsg: fmt.Sprintf("session %s already ended", sessionID),
+		}
+	}
+	return nil
 }

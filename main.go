@@ -50,6 +50,6 @@ func main() {
 	}
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
-	pipeline.RegisterPipelineComputeServer(grpcServer, pipeline.NewServer(userAgent, resultDir))
+	pipeline.RegisterCoreServer(grpcServer, pipeline.NewServer(userAgent, resultDir))
 	grpcServer.Serve(lis)
 }

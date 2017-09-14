@@ -26,7 +26,7 @@ build: lint
 	@go build -i ${LDFLAGS}
 
 build_static:
-	env CGO_ENABLED=0 env GOOS=linux GOARCH=amd64 go build -i ${LDFLAGS}
+	env CGO_ENABLED=0 env GOOS=linux GOARCH=amd64 go build ${LDFLAGS}
 
 compile: lint
 	@go build $(shell glide novendor)

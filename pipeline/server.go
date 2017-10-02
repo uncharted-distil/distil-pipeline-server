@@ -373,18 +373,43 @@ func createPipelineResult(
 		scores = append(scores, &score)
 	}
 
+	trainPath := request.GetTrainFeatures()[0].GetDataUri()
+	targetFeature := request.GetTargetFeatures()[0].GetFeatureId()
+
+	targetLookup, err := buildTargetLookup(trainPath, targetFeature)
+	if err != nil {
+		return nil, err
+	}
+
 	// create stub data generators based on task
-	var generator func() string
+	var generator func(int) string
 	if request.GetTask() == TaskType_CLASSIFICATION {
-		generator = func() string {
-			if rand.Float32() > 0.5 {
-				return "1"
+		cats, err := getCategories(trainPath, targetFeature)
+		if err != nil {
+			log.Errorf("Error generating data: %v", err)
+			return nil, err
+		}
+
+		generator = func(index int) string {
+			if rand.Float32() > 0.9 {
+				return cats[rand.Intn(len(cats))]
 			}
-			return "0"
+
+			return targetLookup[fmt.Sprintf("%d", index)]
 		}
 	} else if request.GetTask() == TaskType_REGRESSION {
-		generator = func() string {
-			return strconv.FormatFloat(rand.Float64(), 'f', 4, 64)
+		generator = func(index int) string {
+			targetValue := targetLookup[fmt.Sprintf("%d", index)]
+			desiredMean, err := strconv.ParseFloat(targetValue, 64)
+			if err != nil {
+				log.Errorf("Error generating data: %v", err)
+				// TODO: use min & max values and randomly pick a value in between.
+				return strconv.FormatFloat(rand.Float64(), 'f', 4, 64)
+			}
+
+			adjustment := rand.Float64() * 0.1
+			value := adjustment*desiredMean + desiredMean
+			return strconv.FormatFloat(value, 'f', 4, 64)
 		}
 	} else {
 		err := fmt.Errorf("unhandled task type %s", request.GetTask())
@@ -393,8 +418,6 @@ func createPipelineResult(
 	}
 
 	// generate and persist mock result csv
-	trainPath := request.GetTrainFeatures()[0].GetDataUri()
-	targetFeature := request.GetTargetFeatures()[0].GetFeatureId()
 	resultDir, err := generateResultCsv(pipelineID, seqNum, trainPath, resultPath, targetFeature, generator)
 	if err != nil {
 		log.Errorf("Failed to generate results: %s", err)
@@ -419,6 +442,72 @@ func createPipelineResult(
 		PipelineId:   pipelineID,
 		PipelineInfo: pipeline,
 	}, nil
+}
+
+func buildTargetLookup(csvPath string, fieldName string) (map[string]string, error) {
+	// Load the data
+	data, err := loadTargetCsv(csvPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Map the field name to an index.
+	var fieldIndex = -1
+	for i, field := range data[0] {
+		if fieldName == field {
+			fieldIndex = i
+		}
+	}
+
+	// Map the index to the target value.
+	// Assume the index is the first field.
+	lookup := make(map[string]string)
+	for _, row := range data[1:] {
+		lookup[row[0]] = row[fieldIndex]
+	}
+
+	return lookup, nil
+}
+
+func getCategories(csvPath string, fieldName string) ([]string, error) {
+	// Load the data
+	data, err := loadTargetCsv(csvPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Map the field name to an index.
+	var fieldIndex = -1
+	for i, field := range data[0] {
+		if fieldName == field {
+			fieldIndex = i
+		}
+	}
+
+	log.Infof("%v", data[0])
+
+	if fieldIndex < 0 {
+		log.Errorf("Could not find field %s in data", fieldName)
+		return nil, fmt.Errorf("Could not find field %s in data", fieldName)
+	}
+
+	// Get the distinct category values.
+	categories := make(map[string]bool)
+	for _, row := range data[1:] {
+		if !categories[row[fieldIndex]] {
+			categories[row[fieldIndex]] = true
+		}
+	}
+
+	// Extract the keys to return the possible categories.
+	i := 0
+	keys := make([]string, len(categories))
+	for k := range categories {
+		keys[i] = k
+		i++
+	}
+
+	return keys, nil
 }
 
 func getAPIVersion() string {

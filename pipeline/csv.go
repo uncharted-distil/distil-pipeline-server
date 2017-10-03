@@ -23,6 +23,21 @@ func loadTrainCsv(dirName string) ([][]string, error) {
 	return lines, nil
 }
 
+func loadTargetCsv(dirName string) ([][]string, error) {
+	// load training data from the supplied directory
+	f, err := os.Open(path.Join(dirName, "trainTargets.csv"))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	lines, err := csv.NewReader(f).ReadAll()
+	if err != nil {
+		return nil, err
+	}
+	return lines, nil
+}
+
 func writeResultCsv(resultPath string, data [][]string) error {
 	// create result directory if necessary
 	err := os.MkdirAll(path.Dir(resultPath), 0700)
@@ -57,7 +72,7 @@ func generateResultCsv(
 	trainDirName string,
 	resultDirName string,
 	targetFeature string,
-	resultGenerator func() string,
+	resultGenerator func(int) string,
 ) (string, error) {
 	// load training data - just use it to get count for now
 	records, err := loadTrainCsv(trainDirName)
@@ -65,10 +80,10 @@ func generateResultCsv(
 		return "", err
 	}
 
-	// generate mock results
+	// generate mock results skipping header row
 	result := [][]string{{"d3m_index", targetFeature}}
-	for i := 0; i < len(records); i++ {
-		result = append(result, []string{strconv.Itoa(i), resultGenerator()})
+	for i := 1; i < len(records); i++ {
+		result = append(result, []string{strconv.Itoa(i), resultGenerator(i)})
 	}
 
 	// write results out to disk

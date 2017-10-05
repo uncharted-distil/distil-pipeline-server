@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -374,6 +375,9 @@ func createPipelineResult(
 	}
 
 	trainPath := request.GetTrainFeatures()[0].GetDataUri()
+	if strings.HasPrefix(trainPath, "file://") {
+		trainPath = trainPath[7:]
+	}
 	targetFeature := request.GetTargetFeatures()[0].GetFeatureId()
 
 	targetLookup, err := buildTargetLookup(trainPath, targetFeature)
@@ -431,7 +435,7 @@ func createPipelineResult(
 	}
 
 	pipeline := &Pipeline{
-		PredictResultUris: []string{absResultDir},
+		PredictResultUris: []string{"file://" + absResultDir},
 		Output:            request.GetOutput(),
 		Scores:            scores,
 	}

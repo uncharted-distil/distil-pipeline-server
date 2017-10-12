@@ -35,7 +35,7 @@ watch:
 	@./run.sh
 
 proto:
-	@protoc -I /usr/local/include -I . ./pipeline/*.proto --go_out=plugins=grpc:.
+	@protoc -I /usr/local/include -I ./pipeline ./pipeline/*.proto --go_out=plugins=grpc:./pipeline
 
 test: build
 	@go test $(shell glide novendor)

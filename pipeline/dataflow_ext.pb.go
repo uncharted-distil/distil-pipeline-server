@@ -73,6 +73,11 @@ func (m *PipelineReference) GetPipelineId() string {
 // This message describes a dataflow's structure. Note that this only has the
 // structure of the dataflow as it will be run, no runtime information or
 // result is included in this message.
+//
+// The description is supposed to represent the training process, if different
+// representations of the pipeline are available for training and testing.
+// There is currently no way of getting a description of the testing pipeline,
+// though that may be added in the future.
 type DataflowDescription struct {
 	ResponseInfo *Response                         `protobuf:"bytes,4,opt,name=response_info,json=responseInfo" json:"response_info,omitempty"`
 	PipelineId   string                            `protobuf:"bytes,1,opt,name=pipeline_id,json=pipelineId" json:"pipeline_id,omitempty"`
@@ -378,7 +383,10 @@ const _ = grpc.SupportPackageIsVersion4
 // Client API for DataflowExt service
 
 type DataflowExtClient interface {
+	// Get a description of the training process as a dataflow.
 	DescribeDataflow(ctx context.Context, in *PipelineReference, opts ...grpc.CallOption) (*DataflowDescription, error)
+	// Get the results of each module making up the dataflow, for the most
+	// recent training run.
 	GetDataflowResults(ctx context.Context, in *PipelineReference, opts ...grpc.CallOption) (DataflowExt_GetDataflowResultsClient, error)
 }
 
@@ -434,7 +442,10 @@ func (x *dataflowExtGetDataflowResultsClient) Recv() (*ModuleResult, error) {
 // Server API for DataflowExt service
 
 type DataflowExtServer interface {
+	// Get a description of the training process as a dataflow.
 	DescribeDataflow(context.Context, *PipelineReference) (*DataflowDescription, error)
+	// Get the results of each module making up the dataflow, for the most
+	// recent training run.
 	GetDataflowResults(*PipelineReference, DataflowExt_GetDataflowResultsServer) error
 }
 

@@ -41,6 +41,7 @@ message AddSamplesRequest {
     SessionContext context = 1;
     repeated SampleData samples = 2;
 }
+
 message RemoveSamplesRequest {
     SessionContext context = 1;
     repeated Sample sample_ids = 2;

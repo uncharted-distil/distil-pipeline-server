@@ -21,6 +21,11 @@ message PipelineReference {
 // This message describes a dataflow's structure. Note that this only has the
 // structure of the dataflow as it will be run, no runtime information or
 // result is included in this message.
+//
+// The description is supposed to represent the training process, if different
+// representations of the pipeline are available for training and testing.
+// There is currently no way of getting a description of the testing pipeline,
+// though that may be added in the future.
 message DataflowDescription {
     // An input port of a module. It has a name, a type, and an optional
     // constant value (if it doesn't come from a connection).
@@ -83,17 +88,20 @@ message ModuleResult {
         ERROR = 3;
     }
 
-    Response response_info = 6;
-    string module_id = 1;
-    Status status = 2;
-    float progress = 3;
+    Response response_info = 6; // status of the overall execution
+    string module_id = 1; // required if response_info is not an error
+    Status status = 2; // status of the specific module
+    float progress = 3; // progress of this module, between 0.0 and 1.0
     repeated ModuleOutput outputs = 4;
-    float execution_time = 5;
+    float execution_time = 5; // if DONE or ERROR, time this module took, in seconds
 }
 
 // Optional dataflow service, through which a TA2 system can expose the
 // internals of computations outlining a machine learning pipeline.
 service DataflowExt {
+    // Get a description of the training process as a dataflow.
     rpc DescribeDataflow(PipelineReference) returns (DataflowDescription) {}
+    // Get the results of each module making up the dataflow, for the most
+    // recent training run.
     rpc GetDataflowResults(PipelineReference) returns (stream ModuleResult) {}
 }

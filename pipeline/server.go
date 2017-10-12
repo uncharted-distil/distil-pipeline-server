@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -376,6 +377,8 @@ func createPipelineResult(
 	}
 
 	trainPath := request.GetTrainFeatures()[0].GetDataUri()
+	trainPath = strings.Replace(trainPath, "file://", "", 1)
+
 	targetFeature := request.GetTargetFeatures()[0].GetFeatureId()
 
 	targetLookup, err := buildTargetLookup(trainPath, targetFeature)

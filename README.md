@@ -69,6 +69,12 @@ Run the container:
 ./docker_run.sh
 ```
 
+## Releasing
+
+1.  Tag source using semantic versioning.
+2.  Update the tags in `docker_build.sh` and `docker_push.sh` to match the source tag.
+3.  Build and push.
+
 ## Common Issues:
 
 #### "glide: command not found":

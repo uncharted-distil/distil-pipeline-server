@@ -93,6 +93,8 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Core_Cre
 
 	for i := int32(0); i < request.GetMaxPipelines(); i++ {
 		go func() {
+			defer wg.Done()
+
 			pipelineID := uuid.NewV1().String()
 
 			// save the pipeline ID for subsequent calls
@@ -142,7 +144,6 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Core_Cre
 				}
 				time.Sleep(s.sendDelay)
 			}
-			wg.Done()
 		}()
 	}
 	wg.Wait()

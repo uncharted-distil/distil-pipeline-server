@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/unchartedsoftware/distil-pipeline-server/pipeline"
@@ -12,8 +13,9 @@ import (
 )
 
 const (
-	defPort      = ":9500"
+	defPort      = ":50051"
 	defResultDir = "./results"
+	defSendDelay = "5000"
 )
 
 var (
@@ -37,12 +39,22 @@ func main() {
 		port = ":" + port
 	}
 
+	sendDelayEnv := os.Getenv("PIPELINE_SEND_DELAY")
+	if sendDelayEnv == "" {
+		sendDelayEnv = defSendDelay
+	}
+	sendDelay, err := strconv.ParseInt(sendDelayEnv, 10, 64)
+	if err != nil {
+		log.Warnf("Failed to parse PIPELINE_SEND_DELAY val %v as int: %+v", sendDelayEnv, err)
+	}
+
 	// generate a user agent string based on version info
 	userAgent := fmt.Sprintf("uncharted-test-ta2-%s-%s", version, timestamp)
 
 	log.Infof(userAgent)
 	log.Infof("result directory: %s", resultDir)
 	log.Infof("listening on %s", port)
+	log.Infof("send delay %d", sendDelay)
 
 	lis, err := net.Listen("tcp", defPort)
 	if err != nil {
@@ -50,6 +62,6 @@ func main() {
 	}
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
-	pipeline.RegisterCoreServer(grpcServer, pipeline.NewServer(userAgent, resultDir))
+	pipeline.RegisterCoreServer(grpcServer, pipeline.NewServer(userAgent, resultDir, sendDelay))
 	grpcServer.Serve(lis)
 }

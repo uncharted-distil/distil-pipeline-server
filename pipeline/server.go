@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 )
 
 const (
-	sendDelay    = 5 * time.Second
 	versionUnset = "version_unset"
 )
 
@@ -43,6 +41,7 @@ type Server struct {
 	pipelineIDs   *set.Set
 	userAgent     string
 	resultDir     string
+	sendDelay     time.Duration
 }
 
 // StatusErr provides an status code and an error message
@@ -57,13 +56,14 @@ func (s *StatusErr) Error() string {
 
 // NewServer creates a new pipeline server instance.  ID maps are initialized with place holder values
 // to support tests without explicit calls to session management.
-func NewServer(userAgent string, resultDir string) *Server {
+func NewServer(userAgent string, resultDir string, sendDelay int64) *Server {
 	server := new(Server)
 	server.sessionIDs = set.New("test-session-id")
 	server.endSessionIDs = set.New("test-end-session-id")
 	server.pipelineIDs = set.New("test-pipeline-id")
 	server.userAgent = userAgent
 	server.resultDir = resultDir
+	server.sendDelay = time.Duration(sendDelay) * time.Millisecond
 	return server
 }
 
@@ -140,7 +140,7 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Core_Cre
 					log.Error(err)
 					sendError = err
 				}
-				time.Sleep(sendDelay)
+				time.Sleep(s.sendDelay)
 			}
 			wg.Done()
 		}()
@@ -213,7 +213,7 @@ func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream Core_Ex
 			log.Error(err)
 			return err
 		}
-		time.Sleep(sendDelay)
+		time.Sleep(s.sendDelay)
 	}
 	return nil
 }
@@ -375,9 +375,6 @@ func createPipelineResult(
 	}
 
 	trainPath := request.GetTrainFeatures()[0].GetDataUri()
-	if strings.HasPrefix(trainPath, "file://") {
-		trainPath = trainPath[7:]
-	}
 	targetFeature := request.GetTargetFeatures()[0].GetFeatureId()
 
 	targetLookup, err := buildTargetLookup(trainPath, targetFeature)
@@ -435,7 +432,7 @@ func createPipelineResult(
 	}
 
 	pipeline := &Pipeline{
-		PredictResultUris: []string{"file://" + absResultDir},
+		PredictResultUris: []string{absResultDir},
 		Output:            request.GetOutput(),
 		Scores:            scores,
 	}

@@ -7,4 +7,4 @@ mv distil-pipeline-server deploy
 cd deploy
 
 # builds distil docker image
-docker build -t docker.uncharted.software/distil-pipeline-server:0.5.0 -t docker.uncharted.software/distil-pipeline-server:latest ..
+docker build -t docker.uncharted.software/distil-pipeline-server:0.6.0 -t docker.uncharted.software/distil-pipeline-server:latest ..

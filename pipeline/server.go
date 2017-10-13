@@ -404,12 +404,15 @@ func createPipelineResult(
 		}
 	} else if request.GetTask() == TaskType_REGRESSION {
 		generator = func(index int) string {
+			var desiredMean float64
 			targetValue := targetLookup[fmt.Sprintf("%d", index)]
-			desiredMean, err := strconv.ParseFloat(targetValue, 64)
-			if err != nil {
-				log.Errorf("Error generating data: %v", err)
-				// TODO: use min & max values and randomly pick a value in between.
-				return strconv.FormatFloat(rand.Float64(), 'f', 4, 64)
+			if targetValue != "" {
+				desiredMean, err = strconv.ParseFloat(targetValue, 64)
+				if err != nil {
+					log.Errorf("Error generating data: %v", err)
+					// TODO: use min & max values and randomly pick a value in between.
+					return strconv.FormatFloat(rand.Float64(), 'f', 4, 64)
+				}
 			}
 
 			adjustment := rand.Float64() * 0.1

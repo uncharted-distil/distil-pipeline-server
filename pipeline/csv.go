@@ -40,7 +40,7 @@ func loadTargetCsv(dirName string) ([][]string, error) {
 
 func writeResultCsv(resultPath string, data [][]string) error {
 	// create result directory if necessary
-	err := os.MkdirAll(path.Dir(resultPath), 0700)
+	err := os.MkdirAll(path.Dir(resultPath), 0777)
 	if err != nil {
 		return err
 	}
@@ -81,12 +81,12 @@ func generateResultCsv(
 	}
 
 	// generate mock results skipping header row
-	result := [][]string{{"d3m_index", targetFeature}}
+	result := [][]string{{"d3mIndex", targetFeature}}
 	for i := 1; i < len(records); i++ {
 		result = append(result, []string{strconv.Itoa(i), resultGenerator(i)})
 	}
 
 	// write results out to disk
-	path := path.Join(resultDirName, fmt.Sprintf("%s-%d.csv", pipelineID, seqNum))
+	path := path.Join(resultDirName, fmt.Sprintf("%s-%d", pipelineID, seqNum), "trainTargets.csv")
 	return path, writeResultCsv(path, result)
 }

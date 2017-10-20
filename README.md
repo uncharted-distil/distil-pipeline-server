@@ -2,6 +2,8 @@
 
 Provides a stub server for testing Distil GRPC calls.
 
+[![CircleCI](https://circleci.com/gh/unchartedsoftware/distil-pipeline-server/tree/master.svg?style=svg&circle-token=6037bacad70b27a10c6fb2d21d31ed75fc6734ab)](https://circleci.com/gh/unchartedsoftware/distil-pipeline-server/tree/master)
+
 ## Dependencies
 
 - [Go](https://golang.org/) programming language binaries with the `GOPATH` environment variable specified and `$GOPATH/bin` in your `PATH`.

@@ -376,12 +376,12 @@ func createPipelineResult(
 		scores = append(scores, &score)
 	}
 
-	trainPath := request.GetTrainFeatures()[0].GetDataUri()
-	trainPath = strings.Replace(trainPath, "file://", "", 1)
+	dataPath := request.GetTrainFeatures()[0].GetDataUri()
+	dataPath = strings.Replace(dataPath, "file://", "", 1)
 
 	targetFeature := request.GetTargetFeatures()[0].GetFeatureId()
 
-	targetLookup, err := buildTargetLookup(trainPath, targetFeature)
+	targetLookup, err := buildLookup(dataPath, targetFeature)
 	if err != nil {
 		return nil, err
 	}
@@ -389,7 +389,7 @@ func createPipelineResult(
 	// create stub data generators based on task
 	var generator func(int) string
 	if request.GetTask() == TaskType_CLASSIFICATION {
-		cats, err := getCategories(trainPath, targetFeature)
+		cats, err := getCategories(dataPath, targetFeature)
 		if err != nil {
 			log.Errorf("Error generating data: %v", err)
 			return nil, err
@@ -426,7 +426,7 @@ func createPipelineResult(
 	}
 
 	// generate and persist mock result csv
-	resultDir, err := generateResultCsv(pipelineID, seqNum, trainPath, resultPath, targetFeature, generator)
+	resultDir, err := generateResultCsv(pipelineID, seqNum, dataPath, resultPath, targetFeature, generator)
 	if err != nil {
 		log.Errorf("Failed to generate results: %s", err)
 		return nil, err
@@ -452,9 +452,9 @@ func createPipelineResult(
 	}, nil
 }
 
-func buildTargetLookup(csvPath string, fieldName string) (map[string]string, error) {
+func buildLookup(csvPath string, fieldName string) (map[string]string, error) {
 	// Load the data
-	data, err := loadTargetCsv(csvPath)
+	data, err := loadDataCsv(csvPath)
 	if err != nil {
 		return nil, err
 	}
@@ -479,7 +479,7 @@ func buildTargetLookup(csvPath string, fieldName string) (map[string]string, err
 
 func getCategories(csvPath string, fieldName string) ([]string, error) {
 	// Load the data
-	data, err := loadTargetCsv(csvPath)
+	data, err := loadDataCsv(csvPath)
 	if err != nil {
 		return nil, err
 	}

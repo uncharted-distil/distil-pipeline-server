@@ -8,24 +8,9 @@ import (
 	"strconv"
 )
 
-func loadTrainCsv(dirName string) ([][]string, error) {
+func loadDataCsv(dirName string) ([][]string, error) {
 	// load training data from the supplied directory
-	f, err := os.Open(path.Join(dirName, "trainData.csv"))
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	lines, err := csv.NewReader(f).ReadAll()
-	if err != nil {
-		return nil, err
-	}
-	return lines, nil
-}
-
-func loadTargetCsv(dirName string) ([][]string, error) {
-	// load training data from the supplied directory
-	f, err := os.Open(path.Join(dirName, "trainTargets.csv"))
+	f, err := os.Open(path.Join(dirName, "tables", "learningData.csv"))
 	if err != nil {
 		return nil, err
 	}
@@ -69,13 +54,13 @@ func writeResultCsv(resultPath string, data [][]string) error {
 func generateResultCsv(
 	pipelineID string,
 	seqNum int,
-	trainDirName string,
+	dirName string,
 	resultDirName string,
 	targetFeature string,
 	resultGenerator func(int) string,
 ) (string, error) {
 	// load training data - just use it to get count for now
-	records, err := loadTrainCsv(trainDirName)
+	records, err := loadDataCsv(dirName)
 	if err != nil {
 		return "", err
 	}
@@ -87,6 +72,6 @@ func generateResultCsv(
 	}
 
 	// write results out to disk
-	path := path.Join(resultDirName, fmt.Sprintf("%s-%d", pipelineID, seqNum), "trainTargets.csv")
+	path := path.Join(resultDirName, fmt.Sprintf("%s-%d", pipelineID, seqNum), "tables", "learningData.csv")
 	return path, writeResultCsv(path, result)
 }

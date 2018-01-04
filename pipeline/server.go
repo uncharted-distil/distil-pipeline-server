@@ -204,7 +204,7 @@ func (s *Server) ExecutePipeline(request *PipelineExecuteRequest, stream Core_Ex
 		ResponseInfo: response,
 		ProgressInfo: Progress_COMPLETED,
 		PipelineId:   pipelineID,
-		ResultUris:   []string{"file://testdata/predict_result.csv"},
+		ResultUri:    "file://testdata/predict_result.csv",
 	}
 	results = append(results, &completed)
 
@@ -266,6 +266,16 @@ func (s *Server) DeletePipelines(context context.Context, request *PipelineDelet
 	return result, nil
 }
 
+// CancelPipelines - stops a pipeline from running.  Not yet implemented.
+func (s *Server) CancelPipelines(context context.Context, request *PipelineCancelRequest) (*PipelineListResult, error) {
+	response := newResponse(StatusCode_UNIMPLEMENTED, "method not implemented")
+	result := &PipelineListResult{
+		ResponseInfo: response,
+		PipelineIds:  nil,
+	}
+	return result, nil
+}
+
 // ExportPipeline request that the TA2 system export the current pipeline
 func (s *Server) ExportPipeline(contex context.Context, request *PipelineExportRequest) (*Response, error) {
 	sessionID := request.Context.GetSessionId()
@@ -289,8 +299,8 @@ func (s *Server) GetExecutePipelineResults(request *PipelineExecuteResultsReques
 	return nil
 }
 
-// UpdateProblemSchema modfies the TA2 server's understanding of the problem schema
-func (s *Server) UpdateProblemSchema(context context.Context, request *UpdateProblemSchemaRequest) (*Response, error) {
+// SetProblemDoc modfies the TA2 server's understanding of the problem schema
+func (s *Server) SetProblemDoc(context context.Context, request *SetProblemDocRequest) (*Response, error) {
 	return newResponse(StatusCode_OK, ""), nil
 }
 
@@ -376,10 +386,11 @@ func createPipelineResult(
 		scores = append(scores, &score)
 	}
 
-	dataPath := request.GetTrainFeatures()[0].GetDataUri()
+	// path to dataset root
+	dataPath := request.GetDatasetUri()
 	dataPath = strings.Replace(dataPath, "file://", "", 1)
 
-	targetFeature := request.GetTargetFeatures()[0].GetFeatureId()
+	targetFeature := request.GetTargetFeatures()[0].GetFeatureName()
 
 	targetLookup, err := buildLookup(dataPath, targetFeature)
 	if err != nil {
@@ -439,9 +450,9 @@ func createPipelineResult(
 	}
 
 	pipeline := &Pipeline{
-		PredictResultUris: []string{absResultDir},
-		Output:            request.GetOutput(),
-		Scores:            scores,
+		PredictResultUri: absResultDir,
+		Output:           request.GetOutput(),
+		Scores:           scores,
 	}
 
 	return &PipelineCreateResult{

@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	defPort      = ":50051"
+	defPort      = ":45042"
 	defResultDir = "./results"
 	defSendDelay = "5000"
 )

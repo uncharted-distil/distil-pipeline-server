@@ -11,52 +11,49 @@ import "core.proto";
  */
 
 message FeatureData {
-    repeated Feature from_feature = 1; // feature source data
-    string dataset_uri = 2;            // URI of datset to add feature to
+    Feature from_feature = 1; // source feature
+    Feature to_feature = 2;   // target feature
 }
 
 message AddFeaturesRequest {
     SessionContext context = 1;
-    repeated FeatureData features = 2;
+    string from_dataset_uri = 2;       // dataset having features copied from
+    string to_dataset_uri = 3;         // dataset having features copied to
+    repeated FeatureData features = 4;
 }
 
 message RemoveFeaturesRequest {
     SessionContext context = 1;
-    repeated Feature features = 2;
-}
-
-message Sample {
-    string sample_id = 1; // value from the d3mIndex column (see https://datadrivendiscovery.org/wiki/display/gov/Dataset+Annotation+Schema)
-    string data_uri = 2;  // URI pointing to source data. Format follows that of train/target data from
-                          // https://datadrivendiscovery.org/wiki/display/gov/Dataset+Annotation+Schema, row selected
-                          // using sample_id value
-}
-
-message SampleData {
-    repeated Sample from_sample = 1; // sample source data
-    string dataset_uri = 2;          // URI of dataset to add samples to
+    string dataset_uri = 2;              // dataset having features removed
+    repeated Feature features = 3; // features being removed
 }
 
 message AddSamplesRequest {
     SessionContext context = 1;
-    repeated SampleData samples = 2;
+    string from_dataset_uri = 2;    // dataset having samples copied from
+    string from_resource_id = 3;    // resource having samples copied from
+    string to_dataset_uri = 4;      // dataset having samples copied to
+    string to_resource_id = 5;      // resource having samples copied to
+    repeated string sample_ids = 6; // samples being copied
 }
 
 message RemoveSamplesRequest {
     SessionContext context = 1;
-    repeated Sample sample_ids = 2;
+    string dataset_uri = 2;         // dataset having samples removed
+    string resource_id = 3;         // resource having samples removed
+    repeated string sample_ids = 4; // samples being removed
 }
 
 message ReplacementData {
-    string value = 1;          // value to add - type is assumed to match value being replaced
-    string feature_id = 2;     // feature value belongs to
-    string sample_id = 3;      // sample value belongs to
-    string dataset_uri = 4;    // uri of dataset being modified
+    Feature feature = 1; // feature value belongs to
+    string sample_id = 2;      // sample value belongs to
+    string value = 3;          // value to add - type is assumed to match value being replaced
 }
 
 message ReplaceDataRequest {
     SessionContext context = 1;
-    repeated ReplacementData replacements = 2;
+    string dataset_uri = 2;     // dataset value belongs to
+    repeated ReplacementData replacements = 3;
 }
 
 message MaterializeRequest {

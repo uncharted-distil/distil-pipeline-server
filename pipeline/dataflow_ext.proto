@@ -82,10 +82,11 @@ message ModuleOutput {
 // replaces the previous value for that port of that module.
 message ModuleResult {
     enum Status {
-        PENDING = 0;
-        RUNNING = 1;
-        DONE = 2;
-        ERROR = 3;
+        UNKNOWN = 0;
+        PENDING = 1;
+        RUNNING = 2;
+        DONE = 3;
+        ERROR = 4;
     }
 
     Response response_info = 6; // status of the overall execution

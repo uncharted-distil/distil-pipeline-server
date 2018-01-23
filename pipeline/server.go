@@ -151,6 +151,10 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Core_Cre
 					sendError = err
 					return
 				}
+				if result.ProgressInfo == Progress_ERRORED {
+					// don't send anything after error
+					break
+				}
 				time.Sleep(s.sendDelay)
 			}
 		}()

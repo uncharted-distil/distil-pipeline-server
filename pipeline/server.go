@@ -43,6 +43,8 @@ type Server struct {
 	userAgent     string
 	resultDir     string
 	sendDelay     time.Duration
+	numUpdates    int
+	errPercentage float64
 }
 
 // StatusErr provides an status code and an error message
@@ -57,7 +59,7 @@ func (s *StatusErr) Error() string {
 
 // NewServer creates a new pipeline server instance.  ID maps are initialized with place holder values
 // to support tests without explicit calls to session management.
-func NewServer(userAgent string, resultDir string, sendDelay int64) *Server {
+func NewServer(userAgent string, resultDir string, sendDelay int, numUpdates int, errPercentage float64) *Server {
 	server := new(Server)
 	server.sessionIDs = set.New("test-session-id")
 	server.endSessionIDs = set.New("test-end-session-id")
@@ -65,6 +67,8 @@ func NewServer(userAgent string, resultDir string, sendDelay int64) *Server {
 	server.userAgent = userAgent
 	server.resultDir = resultDir
 	server.sendDelay = time.Duration(sendDelay) * time.Millisecond
+	server.numUpdates = numUpdates
+	server.errPercentage = errPercentage
 	return server
 }
 
@@ -120,16 +124,18 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Core_Cre
 			}
 			results = append(results, &running)
 
-			// create an updated response
-			updated, err := createPipelineResult(request, response, pipelineID, Progress_UPDATED, 0, s.resultDir)
-			if err != nil {
-				sendError = err
-				return
+			for i := 0; i < s.numUpdates; i++ {
+				// create an updated response
+				updated, err := createPipelineResult(request, response, pipelineID, Progress_UPDATED, i, s.resultDir, s.errPercentage)
+				if err != nil {
+					sendError = err
+					return
+				}
+				results = append(results, updated)
 			}
-			results = append(results, updated)
 
 			// create a completed response
-			completed, err := createPipelineResult(request, response, pipelineID, Progress_COMPLETED, 1, s.resultDir)
+			completed, err := createPipelineResult(request, response, pipelineID, Progress_COMPLETED, s.numUpdates+1, s.resultDir, s.errPercentage)
 			if err != nil {
 				sendError = err
 				return
@@ -139,9 +145,15 @@ func (s *Server) CreatePipelines(request *PipelineCreateRequest, stream Core_Cre
 			// Loop to send results every n seconds.
 			for i, result := range results {
 				log.Infof("Sending part %d", i)
-				if err := stream.Send(result); err != nil {
+				err := stream.Send(result)
+				if err != nil {
 					log.Error(err)
 					sendError = err
+					return
+				}
+				if result.ProgressInfo == Progress_ERRORED {
+					// don't send anything after error
+					break
 				}
 				time.Sleep(s.sendDelay)
 			}
@@ -376,7 +388,18 @@ func createPipelineResult(
 	progress Progress,
 	seqNum int,
 	resultPath string,
+	errPercentage float64,
 ) (*PipelineCreateResult, error) {
+
+	if rand.Float64() < errPercentage {
+		log.Errorf("Error generated intentionally")
+		return &PipelineCreateResult{
+			ResponseInfo: response,
+			ProgressInfo: Progress_ERRORED,
+			PipelineId:   pipelineID,
+		}, nil
+	}
+
 	scores := []*Score{}
 	for _, metric := range request.GetMetrics() {
 		score := Score{

@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
-	"strings"
 
-	"github.com/unchartedsoftware/distil-pipeline-server/pipeline"
 	"github.com/unchartedsoftware/plog"
 	"google.golang.org/grpc"
+
+	"github.com/unchartedsoftware/distil-pipeline-server/env"
+	"github.com/unchartedsoftware/distil-pipeline-server/pipeline"
 )
 
 const (
@@ -24,44 +24,34 @@ var (
 )
 
 func main() {
-	// fetch the result dir
-	resultDir := os.Getenv("PIPELINE_SERVER_RESULT_DIR")
-	if resultDir == "" {
-		resultDir = defResultDir
-	}
+	log.Infof("version: %s built: %s", version, timestamp)
 
-	// fetch the port to listen on
-	port := os.Getenv("PIPELINE_SERVER_PORT")
-	if port == "" {
-		port = defPort
-	}
-	if !strings.HasPrefix(port, ":") {
-		port = ":" + port
-	}
-
-	sendDelayEnv := os.Getenv("PIPELINE_SEND_DELAY")
-	if sendDelayEnv == "" {
-		sendDelayEnv = defSendDelay
-	}
-	sendDelay, err := strconv.ParseInt(sendDelayEnv, 10, 64)
+	// load config from env
+	config, err := env.LoadConfig()
 	if err != nil {
-		log.Warnf("Failed to parse PIPELINE_SEND_DELAY val %v as int: %+v", sendDelayEnv, err)
+		log.Errorf("%+v", err)
+		os.Exit(1)
 	}
+	log.Infof("%+v", config)
 
 	// generate a user agent string based on version info
 	userAgent := fmt.Sprintf("uncharted-test-ta2-%s-%s", version, timestamp)
 
-	log.Infof(userAgent)
-	log.Infof("result directory: %s", resultDir)
-	log.Infof("listening on %s", port)
-	log.Infof("send delay %d", sendDelay)
-
-	lis, err := net.Listen("tcp", defPort)
+	lis, err := net.Listen("tcp", config.Port)
 	if err != nil {
 		log.Errorf("failed to listen: %v", err)
 	}
+
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
-	pipeline.RegisterCoreServer(grpcServer, pipeline.NewServer(userAgent, resultDir, sendDelay))
+
+	pipelineServer := pipeline.NewServer(
+		userAgent,
+		config.ResultDir,
+		config.SendDelay,
+		config.NumUpdates,
+		config.ErrPercent)
+
+	pipeline.RegisterCoreServer(grpcServer, pipelineServer)
 	grpcServer.Serve(lis)
 }

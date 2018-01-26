@@ -412,6 +412,7 @@ func createPipelineResult(
 	// path to dataset root
 	dataPath := request.GetDatasetUri()
 	dataPath = strings.Replace(dataPath, "file://", "", 1)
+	dataPath = strings.Replace(dataPath, "datasetDoc.json", "", 1)
 
 	targetFeature := request.GetTargetFeatures()[0].GetFeatureName()
 

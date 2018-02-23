@@ -6,6 +6,7 @@ import:
   subpackages:
   - proto
   - protoc-gen-go/descriptor
+- package: github.com/pkg/errors
 - package: github.com/satori/go.uuid
 - package: github.com/unchartedsoftware/plog
 - package: golang.org/x/net

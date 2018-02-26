@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 )
 
 func loadDataCsv(dirName string) ([][]string, error) {
@@ -69,7 +70,9 @@ func generateResultCsv(
 	// generate mock results skipping header row
 	result := [][]string{{"d3mIndex", targetFeature}}
 	for i := 1; i < len(records); i++ {
-		result = append(result, []string{records[i][d3mIndexCol], resultGenerator(i)})
+		d3mIndex := records[i][d3mIndexCol]
+		d3mIndexParsed, _ := strconv.Atoi(d3mIndex)
+		result = append(result, []string{d3mIndex, resultGenerator(d3mIndexParsed)})
 	}
 
 	// write results out to disk

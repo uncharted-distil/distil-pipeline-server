@@ -559,6 +559,7 @@ func getCategories(csvPath string, fieldName string) ([]string, error) {
 		keys[i] = k
 		i++
 	}
+	log.Infof("Categories: %v", keys)
 
 	return keys, nil
 }

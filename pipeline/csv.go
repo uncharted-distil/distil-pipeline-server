@@ -55,19 +55,10 @@ func generateResultCsv(
 	seqNum int,
 	dirName string,
 	resultDirName string,
+	d3mIndexCol int,
 	targetFeature string,
 	resultGenerator func(int) string,
 ) (string, error) {
-	schema, err := loadDataSchema(dirName)
-	if err != nil {
-		return "", err
-	}
-	indexCol := 0
-	for i, v := range schema.DataResources[0].Variables {
-		if v.ColName == "d3mIndex" {
-			indexCol = i
-		}
-	}
 
 	// load training data - just use it to get count for now
 	records, err := loadDataCsv(dirName)
@@ -78,7 +69,7 @@ func generateResultCsv(
 	// generate mock results skipping header row
 	result := [][]string{{"d3mIndex", targetFeature}}
 	for i := 1; i < len(records); i++ {
-		result = append(result, []string{records[i][indexCol], resultGenerator(i)})
+		result = append(result, []string{records[i][d3mIndexCol], resultGenerator(i)})
 	}
 
 	// write results out to disk

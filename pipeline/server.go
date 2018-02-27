@@ -415,8 +415,19 @@ func createPipelineResult(
 	dataPath = strings.Replace(dataPath, "datasetDoc.json", "", 1)
 
 	targetFeature := request.GetTargetFeatures()[0].GetFeatureName()
+	schema, err := loadDataSchema(dataPath)
+	if err != nil {
+		log.Errorf("Error reading schema: %v", err)
+		return nil, err
+	}
+	d3mIndexCol := 0
+	for i, v := range schema.DataResources[0].Variables {
+		if v.ColName == "d3mIndex" {
+			d3mIndexCol = i
+		}
+	}
 
-	targetLookup, err := buildLookup(dataPath, targetFeature)
+	targetLookup, err := buildLookup(d3mIndexCol, dataPath, targetFeature)
 	if err != nil {
 		return nil, err
 	}
@@ -461,7 +472,7 @@ func createPipelineResult(
 	}
 
 	// generate and persist mock result csv
-	resultDir, err := generateResultCsv(pipelineID, seqNum, dataPath, resultPath, targetFeature, generator)
+	resultDir, err := generateResultCsv(pipelineID, seqNum, dataPath, resultPath, d3mIndexCol, targetFeature, generator)
 	if err != nil {
 		log.Errorf("Failed to generate results: %s", err)
 		return nil, err
@@ -487,7 +498,7 @@ func createPipelineResult(
 	}, nil
 }
 
-func buildLookup(csvPath string, fieldName string) (map[string]string, error) {
+func buildLookup(d3mIndexCol int, csvPath string, fieldName string) (map[string]string, error) {
 	// Load the data
 	data, err := loadDataCsv(csvPath)
 	if err != nil {
@@ -503,10 +514,9 @@ func buildLookup(csvPath string, fieldName string) (map[string]string, error) {
 	}
 
 	// Map the index to the target value.
-	// Assume the index is the first field.
 	lookup := make(map[string]string)
 	for _, row := range data[1:] {
-		lookup[row[0]] = row[fieldIndex]
+		lookup[row[d3mIndexCol]] = row[fieldIndex]
 	}
 
 	return lookup, nil
@@ -549,6 +559,7 @@ func getCategories(csvPath string, fieldName string) ([]string, error) {
 		keys[i] = k
 		i++
 	}
+	log.Infof("Categories: %v", keys)
 
 	return keys, nil
 }

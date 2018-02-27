@@ -17,6 +17,8 @@ imports:
   version: 6ca4dbf54d38eea1a992b3c722a76a5d1c4cb25c
 - name: github.com/mgutz/ansi
   version: 9520e82c474b0a04dd04f8a40959027271bab992
+- name: github.com/pkg/errors
+  version: 30136e27e2ac8d167177e8a583aa4c3fea5be833
 - name: github.com/satori/go.uuid
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
 - name: github.com/unchartedsoftware/plog

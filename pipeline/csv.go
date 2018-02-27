@@ -56,9 +56,11 @@ func generateResultCsv(
 	seqNum int,
 	dirName string,
 	resultDirName string,
+	d3mIndexCol int,
 	targetFeature string,
 	resultGenerator func(int) string,
 ) (string, error) {
+
 	// load training data - just use it to get count for now
 	records, err := loadDataCsv(dirName)
 	if err != nil {
@@ -68,7 +70,9 @@ func generateResultCsv(
 	// generate mock results skipping header row
 	result := [][]string{{"d3mIndex", targetFeature}}
 	for i := 1; i < len(records); i++ {
-		result = append(result, []string{strconv.Itoa(i), resultGenerator(i)})
+		d3mIndex := records[i][d3mIndexCol]
+		d3mIndexParsed, _ := strconv.Atoi(d3mIndex)
+		result = append(result, []string{d3mIndex, resultGenerator(d3mIndexParsed)})
 	}
 
 	// write results out to disk

@@ -35,9 +35,9 @@ watch:
 	@./run.sh
 
 sync_api:
-	@git submodule update --remote
+	@git submodule update --remote --init --recursive
 
-sync_and_generate: sync proto
+sync_and_gen: sync_api proto
 
 proto:
 	@protoc -I /usr/local/include \
@@ -54,4 +54,4 @@ install:
 	@go get -u github.com/unchartedsoftware/witch
 	@go get -u github.com/golang/protobuf/protoc-gen-go
 	@glide install
-	@git submodule update --init
+	@git submodule update --init --recursive

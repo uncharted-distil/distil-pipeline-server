@@ -129,6 +129,7 @@ func (s *Server) SearchPipelines(ctx context.Context, req *SearchPipelinesReques
 }
 
 func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest, stream Core_GetSearchPipelinesResultsServer) error {
+	log.Infof("Received GetSearchPipelinesResults - %v", req)
 	searchID := req.GetSearchId()
 	err := s.validateSearch(searchID)
 	if err != nil {
@@ -202,6 +203,7 @@ func (s *Server) validateSearch(searchID string) error {
 }
 
 func (s *Server) EndSearchPipelines(ctx context.Context, req *EndSearchPipelinesRequest) (*EndSearchPipelinesResponse, error) {
+	log.Infof("Received EndSearchPipelines - %v", req)
 	searchID := req.GetSearchId()
 	err := s.validateSearch(searchID)
 	if err != nil {

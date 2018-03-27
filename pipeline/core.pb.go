@@ -664,7 +664,7 @@ func (m *GetSearchPipelinesResultsRequest) GetSearchId() string {
 
 type GetSearchPipelinesResultsResponse struct {
 	PipelineId string `protobuf:"bytes,1,opt,name=pipeline_id,json=pipelineId" json:"pipeline_id,omitempty"`
-	// Internal score for this pipeline between 0.0 and 1.0 where 1.0 is the best pipeline.
+	// Internal score for this pipeline between 0.0 and 1.0 where 1.0 is the highest score.
 	// There is no other meaning to this score and it does not necessary depend on scores
 	// listed in the problem description. Optional.
 	// Becaue this field is optional, if omitted the default value will be 0. But 0 is a

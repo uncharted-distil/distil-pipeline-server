@@ -5,12 +5,12 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io/ioutil"
-	// "math/rand"
+	"math/rand"
 	// "path/filepath"
 	// "strconv"
 	// "strings"
-	// "sync"
 	"golang.org/x/net/context"
+	"sync"
 	"time"
 	// uuid generation
 	"github.com/satori/go.uuid"
@@ -89,11 +89,13 @@ type Server struct {
 	sendDelay     time.Duration
 	numUpdates    int
 	errPercentage float64
+	maxPipelines  int
 }
 
 // NewServer creates a new pipeline server instance.  ID maps are initialized with place holder values
 // to support tests without explicit calls to session management.
-func NewServer(userAgent string, resultDir string, sendDelay int, numUpdates int, errPercentage float64) *Server {
+func NewServer(userAgent string, resultDir string, sendDelay int,
+	numUpdates int, errPercentage float64, maxPipelines int) *Server {
 	server := new(Server)
 	server.sessionIDs = set.New("test-session-id")
 	server.endSessionIDs = set.New("test-end-session-id")
@@ -104,6 +106,7 @@ func NewServer(userAgent string, resultDir string, sendDelay int, numUpdates int
 	server.sendDelay = time.Duration(sendDelay) * time.Millisecond
 	server.numUpdates = numUpdates
 	server.errPercentage = errPercentage
+	server.maxPipelines = maxPipelines
 	return server
 }
 
@@ -112,7 +115,7 @@ func (s *Server) SearchPipelines(ctx context.Context, req *SearchPipelinesReques
 	log.Infof("Received SearchPipelines - %v", req)
 
 	// generate search_id
-	id := uuid.NewV4().String()
+	id := uuid.NewV1().String()
 	s.searchIDs.Add(id)
 
 	resp := &SearchPipelinesResponse{SearchId: id}
@@ -123,8 +126,11 @@ func (s *Server) SearchPipelines(ctx context.Context, req *SearchPipelinesReques
 // startSearch generates pipeline search results to be available when called in GetSearchPipelinesResults
 func (s *Server) startSearch(req *SearchPipelinesRequest) {
 	// randomly generate number of pipelines to "find"
-	// for each pipeline
-	//     generate a pipeline id
+	pipelinesFound := rand.Intn(s.maxPipelines)
+	for i := 0; i <= pipelinesFound; i++ {
+		pipelineID := uuid.NewV4().String()
+		continue
+	}
 	//     associate that id with the search id
 	//     go generateSearchPipelineResults (need someway to attach results to pipeline id in thread safe manner)
 	return

@@ -12,11 +12,12 @@ var (
 
 // Config represents the application configuration state loaded from env vars.
 type Config struct {
-	ResultDir  string  `env:"PIPELINE_SERVER_RESULT_DIR" envDefault:"./results"`
-	Port       string  `env:"PIPELINE_SERVER_PORT" envDefault:":45042"`
-	SendDelay  int     `env:"PIPELINE_SEND_DELAY" envDefault:"5000"`
-	ErrPercent float64 `env:"PIPELINE_ERR_PERCENT" envDefault:"0.1"`
-	NumUpdates int     `env:"PIPELINE_NUM_UPDATES" envDefault:"1"`
+	ResultDir    string  `env:"PIPELINE_SERVER_RESULT_DIR" envDefault:"./results"`
+	Port         string  `env:"PIPELINE_SERVER_PORT" envDefault:":45042"`
+	SendDelay    int     `env:"PIPELINE_SEND_DELAY" envDefault:"5000"`
+	ErrPercent   float64 `env:"PIPELINE_ERR_PERCENT" envDefault:"0.1"`
+	NumUpdates   int     `env:"PIPELINE_NUM_UPDATES" envDefault:"1"`
+	MaxPipelines int     `env:"PIPELINE_MAX_PIPELINES" envDefault:"1"`
 }
 
 // LoadConfig loads the config from the environment if necessary and returns a

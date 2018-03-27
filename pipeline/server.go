@@ -10,7 +10,7 @@ import (
 	// "strconv"
 	// "strings"
 	"golang.org/x/net/context"
-	"sync"
+	// "sync"
 	"time"
 	// uuid generation
 	"github.com/satori/go.uuid"
@@ -83,6 +83,7 @@ type Server struct {
 	sessionIDs    *set.Set
 	endSessionIDs *set.Set
 	searchIDs     *set.Set
+	endSearchIDs  *set.Set
 	pipelineIDs   *set.Set
 	userAgent     string
 	resultDir     string
@@ -100,6 +101,7 @@ func NewServer(userAgent string, resultDir string, sendDelay int,
 	server.sessionIDs = set.New("test-session-id")
 	server.endSessionIDs = set.New("test-end-session-id")
 	server.searchIDs = set.New()
+	server.endSearchIDs = set.New()
 	server.pipelineIDs = set.New("test-pipeline-id")
 	server.userAgent = userAgent
 	server.resultDir = resultDir
@@ -110,7 +112,7 @@ func NewServer(userAgent string, resultDir string, sendDelay int,
 	return server
 }
 
-// SearchPipelines generates a searchID, kicks off a pipeline search internally, and returns a SearchResponse immediately
+// SearchPipelines generates a searchID and returns a SearchResponse immediately
 func (s *Server) SearchPipelines(ctx context.Context, req *SearchPipelinesRequest) (*SearchPipelinesResponse, error) {
 	log.Infof("Received SearchPipelines - %v", req)
 
@@ -118,13 +120,21 @@ func (s *Server) SearchPipelines(ctx context.Context, req *SearchPipelinesReques
 	id := uuid.NewV1().String()
 	s.searchIDs.Add(id)
 
+	// NOTE(jtorrez): could get fancy here and kick-off a goroutine that starts generating pipeline results
+	// but leaving that out of first pass dummy results implementation, should also be analyzing request to
+	// for problem, template, etc.
+
 	resp := &SearchPipelinesResponse{SearchId: id}
-	go s.startSearch(req)
 	return resp, nil
 }
 
-// startSearch generates pipeline search results to be available when called in GetSearchPipelinesResults
-func (s *Server) startSearch(req *SearchPipelinesRequest) {
+func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest, stream Core_GetSearchPipelinesResultsServer) error {
+	searchID := req.GetSearchId()
+	err := s.validateSearch(searchID)
+	if err != nil {
+		return err
+	}
+
 	// randomly generate number of pipelines to "find"
 	pipelinesFound := rand.Intn(s.maxPipelines)
 	for i := 0; i <= pipelinesFound; i++ {
@@ -133,11 +143,22 @@ func (s *Server) startSearch(req *SearchPipelinesRequest) {
 	}
 	//     associate that id with the search id
 	//     go generateSearchPipelineResults (need someway to attach results to pipeline id in thread safe manner)
-	return
+	return status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
-func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest, stream Core_GetSearchPipelinesResultsServer) error {
-	return status.Error(codes.Unimplemented, "Method unimplemented")
+func (s *Server) validateSearch(searchID string) error {
+	// If the search ID doesn't exist return an error
+	// the API doesn't include a way to commnicate that an ID doesn't exist so using
+	// the gRPC built in error codes
+	if !s.searchIDs.Has(searchID) {
+		return status.Errorf(codes.NotFound, "SearchID: %s doesn't exist", searchID)
+	}
+	if s.endSearchIDs.Has(searchID) {
+		// NOTE(jtorrez): not sure if this is appropriate error code, available gRPC codes
+		// don't explicilty communicate a ended session/search/other state
+		return status.Errorf(codes.ResourceExhausted, "SearchID: %s already ended, resources no longer available", searchID)
+	}
+	return nil
 }
 
 func (s *Server) EndSearchPipelines(ctx context.Context, req *EndSearchPipelinesRequest) (*EndSearchPipelinesResponse, error) {
@@ -285,21 +306,3 @@ func getCategories(csvPath string, fieldName string) ([]string, error) {
 
 	return keys, nil
 }
-
-// func (s *Server) validateSession(sessionID string) *StatusErr {
-// 	// If the session ID doesn't exist return a single result flagging the error
-// 	// and close the stream.
-// 	if !s.sessionIDs.Has(sessionID) {
-// 		return &StatusErr{
-// 			Status:   StatusCode_SESSION_UNKNOWN,
-// 			ErrorMsg: fmt.Sprintf("session %s does not exist", sessionID),
-// 		}
-// 	}
-// 	if s.endSessionIDs.Has(sessionID) {
-// 		return &StatusErr{
-// 			Status:   StatusCode_SESSION_EXPIRED,
-// 			ErrorMsg: fmt.Sprintf("session %s already ended", sessionID),
-// 		}
-// 	}
-// 	return nil
-// }

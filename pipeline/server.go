@@ -138,7 +138,6 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 	// randomly generate number of pipelines to "find"
 	pipelinesFound := rand.Intn(s.maxPipelines)
 
-	// if no pipelines are found, return immedidately
 	// it is possible to find no pipelines, but for the sake of testing
 	// generate number of "found" pipelines until it is greater than 0
 	if pipelinesFound == 0 {
@@ -172,8 +171,8 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 				// type functionality is added to this stub server
 			}
 			// wait a random amount of time within a limit before sending found pipeline
-			// send pipeline
-			time.Sleep(s.sendDelay)
+			randomDelay := rand.Intn(int(s.sendDelay))
+			time.Sleep(time.Duration(randomDelay) * time.Millisecond)
 			err := stream.Send(resp)
 			if err != nil {
 				log.Error(err)

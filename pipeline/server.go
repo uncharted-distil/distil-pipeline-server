@@ -133,8 +133,12 @@ func (s *Server) EndProblem(ctx context.Context, req *EndProblemRequest) (*EndPr
 
 // SearchPipelines generates a searchID, kicks off a pipeline search internally, and returns a SearchResponse immediately
 func (s *Server) SearchPipelines(ctx context.Context, req *SearchPipelinesRequest) (*SearchPipelinesResponse, error) {
+	log.Infof("Received SearchPipelines - %v", req)
+
 	// generate search_id
 	id := uuid.NewV4().String()
+	s.searchIDs.Add(id)
+
 	resp := &SearchPipelinesResponse{SearchId: id}
 	go s.startSearch(req)
 	return resp, nil

@@ -82,6 +82,7 @@ func getAPIVersion() string {
 type Server struct {
 	sessionIDs    *set.Set
 	endSessionIDs *set.Set
+	searchIDs     *set.Set
 	pipelineIDs   *set.Set
 	userAgent     string
 	resultDir     string
@@ -96,6 +97,7 @@ func NewServer(userAgent string, resultDir string, sendDelay int, numUpdates int
 	server := new(Server)
 	server.sessionIDs = set.New("test-session-id")
 	server.endSessionIDs = set.New("test-end-session-id")
+	server.searchIDs = set.New()
 	server.pipelineIDs = set.New("test-pipeline-id")
 	server.userAgent = userAgent
 	server.resultDir = resultDir

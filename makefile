@@ -34,6 +34,11 @@ compile: lint
 watch:
 	@./run.sh
 
+sync_api:
+	@git submodule update --remote
+
+sync_and_generate: sync proto
+
 proto:
 	@protoc -I /usr/local/include \
 		-I ./pipeline/ta3ta2-api \

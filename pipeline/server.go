@@ -122,6 +122,12 @@ func (s *Server) SearchPipelines(ctx context.Context, req *SearchPipelinesReques
 
 // startSearch generates pipeline search results to be available when called in GetSearchPipelinesResults
 func (s *Server) startSearch(req *SearchPipelinesRequest) {
+	// randomly generate number of pipelines to "find"
+	// for each pipeline
+	//     generate a pipeline id
+	//     associate that id with the search id
+	//     go generateSearchPipelineResults (need someway to attach results to pipeline id in thread safe manner)
+	return
 }
 
 func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest, stream Core_GetSearchPipelinesResultsServer) error {

@@ -90,16 +90,6 @@ type Server struct {
 	errPercentage float64
 }
 
-// // StatusErr provides an status code and an error message
-// type StatusErr struct {
-// 	// Status   StatusCode
-// 	ErrorMsg string
-// }
-
-// func (s *StatusErr) Error() string {
-// 	return s.ErrorMsg
-// }
-
 // NewServer creates a new pipeline server instance.  ID maps are initialized with place holder values
 // to support tests without explicit calls to session management.
 func NewServer(userAgent string, resultDir string, sendDelay int, numUpdates int, errPercentage float64) *Server {
@@ -115,14 +105,17 @@ func NewServer(userAgent string, resultDir string, sendDelay int, numUpdates int
 	return server
 }
 
+// TODO(jtorrez): implement this if it stays in MR, may not be in final API
 func (s *Server) StartSession(ctx context.Context, req *StartSessionRequest) (*StartSessionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// TODO(jtorrez): implement this if it stays in MR, may not be in final API
 func (s *Server) EndSession(ctx context.Context, req *EndSessionRequest) (*EndSessionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// TODO(jtorrez): implement this if it stays in MR, may not be in final API
 func (s *Server) StartProblem(ctx context.Context, req *StartProblemRequest) (*StartProblemResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
@@ -131,21 +124,21 @@ func (s *Server) UpdateProblem(ctx context.Context, req *UpdateProblemRequest) (
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// TODO(jtorrez): implement this if it stays in MR, may not be in final API
 func (s *Server) EndProblem(ctx context.Context, req *EndProblemRequest) (*EndProblemResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// SearchPipelines generates a searchID, kicks off a pipeline search internally, and returns a SearchResponse immediately
 func (s *Server) SearchPipelines(ctx context.Context, req *SearchPipelinesRequest) (*SearchPipelinesResponse, error) {
 	// generate search_id
 	id := uuid.NewV4().String()
 	resp := &SearchPipelinesResponse{SearchId: id}
 	go s.startSearch(req)
-	// where to hold search state? in-memory for now probably
 	return resp, nil
 }
 
-// startSearch kicks-off a pipeline search, creating the state necessary to manage the search
-// and contains the logic controlling how searches are routed/handled (calls to worker, metalearner, etc.)
+// startSearch generates pipeline search results to be available when called in GetSearchPipelinesResults
 func (s *Server) startSearch(req *SearchPipelinesRequest) {
 }
 
@@ -154,8 +147,8 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 }
 
 func (s *Server) EndSearchPipelines(ctx context.Context, req *EndSearchPipelinesRequest) (*EndSearchPipelinesResponse, error) {
-	searchId := req.GetSearchId()
-	err := s.releaseSearchResources(searchId)
+	searchID := req.GetSearchId()
+	err := s.releaseSearchResources(searchID)
 	if err != nil {
 		// handle the err bruv
 		// generate an appropriate grpc error code
@@ -165,7 +158,7 @@ func (s *Server) EndSearchPipelines(ctx context.Context, req *EndSearchPipelines
 }
 
 // releaseSearchResources releases all system resources related to searchID
-func (s *Server) releaseSearchResources(searchId string) error {
+func (s *Server) releaseSearchResources(searchID string) error {
 	return nil
 }
 

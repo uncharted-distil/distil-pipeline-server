@@ -122,7 +122,7 @@ func (s *Server) SearchPipelines(ctx context.Context, req *SearchPipelinesReques
 
 	// NOTE(jtorrez): could get fancy here and kick-off a goroutine that starts generating pipeline results
 	// but leaving that out of first pass dummy results implementation, should also be analyzing request to
-	// for problem, template, etc.
+	// for problem, problem_id (if that is kept in the API), template, etc.
 
 	resp := &SearchPipelinesResponse{SearchId: id}
 	return resp, nil
@@ -138,85 +138,53 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 	// randomly generate number of pipelines to "find"
 	pipelinesFound := rand.Intn(s.maxPipelines)
 
+	// if no pipelines are found, return immedidately
+	// it is possible to find no pipelines, but for the sake of testing
+	// generate number of "found" pipelines until it is greater than 0
 	if pipelinesFound == 0 {
-		// return an empty response and no error
-		// stream.Send(result)
-		return nil
+		for pipelinesFound <= 0 {
+			pipelinesFound = rand.Intn(s.maxPipelines)
+		}
 	}
 
 	wg := sync.WaitGroup{}
 	wg.Add(pipelinesFound)
 
 	// race condition is intentional - reporting last encountered error is sufficient
-	// var sendError error
+	var sendError error
 
 	for i := 0; i < pipelinesFound; i++ {
 		go func() {
 			defer wg.Done()
 
 			pipelineID := uuid.NewV4().String()
-
 			// save the pipeline ID for subsequent calls
 			s.pipelineIDs.Add(pipelineID)
+			resp := &GetSearchPipelinesResultsResponse{
+				PipelineId: pipelineID,
+				// NOTE(jtorrez): according to comments in proto file, InternalScore field should be NaN
+				// if system doesn't have an internal score to provide. i.e., this optional
+				// field shouldn't ever be ommited, but it is not possible to set this
+				// field to nil in Go, so just generating a random number for now
+				InternalScore: rand.Float64(),
+				// TODO(jtorrez): omitting the more complicated Scores field (which includes
+				// problem specific metrics like F1 score, etc.) until parsing the problem
+				// type functionality is added to this stub server
+			}
+			// wait a random amount of time within a limit before sending found pipeline
+			// send pipeline
+			time.Sleep(s.sendDelay)
+			err := stream.Send(resp)
+			if err != nil {
+				log.Error(err)
+				sendError = err
+				return
+			}
 		}()
 	}
+	wg.Wait()
 
-	// results := []*PipelineCreateResult{}
-
-	// // create an initial submitted response
-	// response := newResponse(StatusCode_OK, "")
-	// submitted := PipelineCreateResult{
-	// 	ResponseInfo: response,
-	// 	ProgressInfo: Progress_SUBMITTED,
-	// 	PipelineId:   pipelineID,
-	// }
-	// results = append(results, &submitted)
-
-	// // create a follow on running response
-	// running := PipelineCreateResult{
-	// 	ResponseInfo: response,
-	// 	ProgressInfo: Progress_RUNNING,
-	// 	PipelineId:   pipelineID,
-	// }
-	// results = append(results, &running)
-
-	// for i := 0; i < s.numUpdates; i++ {
-	// 	// create an updated response
-	// 	updated, err := createPipelineResult(request, response, pipelineID, Progress_UPDATED, i, s.resultDir, s.errPercentage)
-	// 	if err != nil {
-	// 		sendError = err
-	// 		return
-	// 	}
-	// 	results = append(results, updated)
-	// }
-
-	// // create a completed response
-	// completed, err := createPipelineResult(request, response, pipelineID, Progress_COMPLETED, s.numUpdates+1, s.resultDir, s.errPercentage)
-	// if err != nil {
-	// 	sendError = err
-	// 	return
-	// }
-	// results = append(results, completed)
-
-	// // Loop to send results every n seconds.
-	// for i, result := range results {
-	// 	log.Infof("Sending part %d", i)
-	// 	err := stream.Send(result)
-	// 	if err != nil {
-	// 		log.Error(err)
-	// 		sendError = err
-	// 		return
-	// 	}
-	// 	if result.ProgressInfo == Progress_ERRORED {
-	// 		// don't send anything after error
-	// 		break
-	// 	}
-	// 	time.Sleep(s.sendDelay)
-	// }
-
-	//     associate that id with the search id
-	//     go generateSearchPipelineResults (need someway to attach results to pipeline id in thread safe manner)
-	return status.Error(codes.Unimplemented, "Method unimplemented")
+	return sendError
 }
 
 func (s *Server) validateSearch(searchID string) error {

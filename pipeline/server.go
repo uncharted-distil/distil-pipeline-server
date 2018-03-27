@@ -10,14 +10,19 @@ import (
 	// "strconv"
 	// "strings"
 	// "sync"
+	"golang.org/x/net/context"
 	"time"
-
+	// uuid generation
+	"github.com/satori/go.uuid"
+	// data structures
 	"github.com/fatih/set"
+	// grpc and protobuf
 	"github.com/golang/protobuf/proto"
 	protobuf "github.com/golang/protobuf/protoc-gen-go/descriptor"
-	// "github.com/satori/go.uuid"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/unchartedsoftware/plog"
-	// "golang.org/x/net/context"
 )
 
 const (
@@ -33,6 +38,44 @@ func APIVersion() string {
 		apiVersion = getAPIVersion()
 	}
 	return apiVersion
+}
+
+func getAPIVersion() string {
+	// Get the raw file descriptor bytes
+	fileDesc := proto.FileDescriptor(E_ProtocolVersion.Filename)
+	if fileDesc == nil {
+		log.Errorf("failed to find file descriptor for %v", E_ProtocolVersion.Filename)
+		return versionUnset
+	}
+
+	// Open a gzip reader and decompress
+	r, err := gzip.NewReader(bytes.NewReader(fileDesc))
+	if err != nil {
+		log.Errorf("failed to open gzip reader: %v", err)
+		return versionUnset
+	}
+	defer r.Close()
+
+	b, err := ioutil.ReadAll(r)
+	if err != nil {
+		log.Errorf("failed to decompress descriptor: %v", err)
+		return versionUnset
+	}
+
+	// Unmarshall the bytes from the proto format
+	fd := &protobuf.FileDescriptorProto{}
+	if err := proto.Unmarshal(b, fd); err != nil {
+		log.Errorf("malformed FileDescriptorProto: %v", err)
+		return versionUnset
+	}
+
+	// Fetch the extension from the FileDescriptorOptions message
+	ex, err := proto.GetExtension(fd.GetOptions(), E_ProtocolVersion)
+	if err != nil {
+		log.Errorf("failed to fetch extension: %v", err)
+		return versionUnset
+	}
+	return *ex.(*string)
 }
 
 // Server represents a basic distil pipeline server.
@@ -70,6 +113,100 @@ func NewServer(userAgent string, resultDir string, sendDelay int, numUpdates int
 	server.numUpdates = numUpdates
 	server.errPercentage = errPercentage
 	return server
+}
+
+func (s *Server) StartSession(ctx context.Context, req *StartSessionRequest) (*StartSessionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+func (s *Server) EndSession(ctx context.Context, req *EndSessionRequest) (*EndSessionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+func (s *Server) StartProblem(ctx context.Context, req *StartProblemRequest) (*StartProblemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+func (s *Server) UpdateProblem(ctx context.Context, req *UpdateProblemRequest) (*UpdateProblemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+func (s *Server) EndProblem(ctx context.Context, req *EndProblemRequest) (*EndProblemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+func (s *Server) SearchPipelines(ctx context.Context, req *SearchPipelinesRequest) (*SearchPipelinesResponse, error) {
+	// generate search_id
+	id := uuid.NewV4().String()
+	resp := &SearchPipelinesResponse{SearchId: id}
+	go s.startSearch(req)
+	// where to hold search state? in-memory for now probably
+	return resp, nil
+}
+
+// startSearch kicks-off a pipeline search, creating the state necessary to manage the search
+// and contains the logic controlling how searches are routed/handled (calls to worker, metalearner, etc.)
+func (s *Server) startSearch(req *SearchPipelinesRequest) {
+}
+
+func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest, stream Core_GetSearchPipelinesResultsServer) error {
+	return status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+func (s *Server) EndSearchPipelines(ctx context.Context, req *EndSearchPipelinesRequest) (*EndSearchPipelinesResponse, error) {
+	searchId := req.GetSearchId()
+	err := s.releaseSearchResources(searchId)
+	if err != nil {
+		// handle the err bruv
+		// generate an appropriate grpc error code
+		// err = status.Error(<code>, <msg>)
+	}
+	return &EndSearchPipelinesResponse{}, err
+}
+
+// releaseSearchResources releases all system resources related to searchID
+func (s *Server) releaseSearchResources(searchId string) error {
+	return nil
+}
+
+func (s *Server) StopSearchPipelines(ctx context.Context, req *StopSearchPipelinesRequest) (*StopSearchPipelinesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+func (s *Server) DescribePipeline(ctx context.Context, req *DescribePipelineRequest) (*DescribePipelineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+func (s *Server) ScorePipeline(ctx context.Context, req *ScorePipelineRequest) (*ScorePipelineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+func (s *Server) GetScorePipelineResults(req *GetScorePipelineResultsRequest, stream Core_GetScorePipelineResultsServer) error {
+	return status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+func (s *Server) FitPipeline(ctx context.Context, req *FitPipelineRequest) (*FitPipelineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+func (s *Server) GetFitPipelineResults(req *GetFitPipelineResultsRequest, stream Core_GetFitPipelineResultsServer) error {
+	return status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+func (s *Server) ProducePipeline(ctx context.Context, req *ProducePipelineRequest) (*ProducePipelineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+func (s *Server) GetProducePipelineResults(req *GetProducePipelineResultsRequest, stream Core_GetProducePipelineResultsServer) error {
+	return status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+func (s *Server) PipelineExport(ctx context.Context, req *PipelineExportRequest) (*PipelineExportResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+func (s *Server) ListPrimitives(ctx context.Context, req *ListPrimitivesRequest) (*ListPrimitivesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
 func buildLookup(d3mIndexCol int, csvPath string, fieldName string) (map[string]string, error) {
@@ -136,44 +273,6 @@ func getCategories(csvPath string, fieldName string) ([]string, error) {
 	log.Infof("Categories: %v", keys)
 
 	return keys, nil
-}
-
-func getAPIVersion() string {
-	// Get the raw file descriptor bytes
-	fileDesc := proto.FileDescriptor(E_ProtocolVersion.Filename)
-	if fileDesc == nil {
-		log.Errorf("failed to find file descriptor for %v", E_ProtocolVersion.Filename)
-		return versionUnset
-	}
-
-	// Open a gzip reader and decompress
-	r, err := gzip.NewReader(bytes.NewReader(fileDesc))
-	if err != nil {
-		log.Errorf("failed to open gzip reader: %v", err)
-		return versionUnset
-	}
-	defer r.Close()
-
-	b, err := ioutil.ReadAll(r)
-	if err != nil {
-		log.Errorf("failed to decompress descriptor: %v", err)
-		return versionUnset
-	}
-
-	// Unmarshall the bytes from the proto format
-	fd := &protobuf.FileDescriptorProto{}
-	if err := proto.Unmarshal(b, fd); err != nil {
-		log.Errorf("malformed FileDescriptorProto: %v", err)
-		return versionUnset
-	}
-
-	// Fetch the extension from the FileDescriptorOptions message
-	ex, err := proto.GetExtension(fd.GetOptions(), E_ProtocolVersion)
-	if err != nil {
-		log.Errorf("failed to fetch extension: %v", err)
-		return versionUnset
-	}
-	return *ex.(*string)
 }
 
 // func (s *Server) validateSession(sessionID string) *StatusErr {

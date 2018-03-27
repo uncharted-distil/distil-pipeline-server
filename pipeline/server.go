@@ -10,7 +10,7 @@ import (
 	// "strconv"
 	// "strings"
 	"golang.org/x/net/context"
-	// "sync"
+	"sync"
 	"time"
 	// uuid generation
 	"github.com/satori/go.uuid"
@@ -137,10 +137,83 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 
 	// randomly generate number of pipelines to "find"
 	pipelinesFound := rand.Intn(s.maxPipelines)
-	for i := 0; i <= pipelinesFound; i++ {
-		pipelineID := uuid.NewV4().String()
-		continue
+
+	if pipelinesFound == 0 {
+		// return an empty response and no error
+		// stream.Send(result)
+		return nil
 	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(pipelinesFound)
+
+	// race condition is intentional - reporting last encountered error is sufficient
+	// var sendError error
+
+	for i := 0; i < pipelinesFound; i++ {
+		go func() {
+			defer wg.Done()
+
+			pipelineID := uuid.NewV4().String()
+
+			// save the pipeline ID for subsequent calls
+			s.pipelineIDs.Add(pipelineID)
+		}()
+	}
+
+	// results := []*PipelineCreateResult{}
+
+	// // create an initial submitted response
+	// response := newResponse(StatusCode_OK, "")
+	// submitted := PipelineCreateResult{
+	// 	ResponseInfo: response,
+	// 	ProgressInfo: Progress_SUBMITTED,
+	// 	PipelineId:   pipelineID,
+	// }
+	// results = append(results, &submitted)
+
+	// // create a follow on running response
+	// running := PipelineCreateResult{
+	// 	ResponseInfo: response,
+	// 	ProgressInfo: Progress_RUNNING,
+	// 	PipelineId:   pipelineID,
+	// }
+	// results = append(results, &running)
+
+	// for i := 0; i < s.numUpdates; i++ {
+	// 	// create an updated response
+	// 	updated, err := createPipelineResult(request, response, pipelineID, Progress_UPDATED, i, s.resultDir, s.errPercentage)
+	// 	if err != nil {
+	// 		sendError = err
+	// 		return
+	// 	}
+	// 	results = append(results, updated)
+	// }
+
+	// // create a completed response
+	// completed, err := createPipelineResult(request, response, pipelineID, Progress_COMPLETED, s.numUpdates+1, s.resultDir, s.errPercentage)
+	// if err != nil {
+	// 	sendError = err
+	// 	return
+	// }
+	// results = append(results, completed)
+
+	// // Loop to send results every n seconds.
+	// for i, result := range results {
+	// 	log.Infof("Sending part %d", i)
+	// 	err := stream.Send(result)
+	// 	if err != nil {
+	// 		log.Error(err)
+	// 		sendError = err
+	// 		return
+	// 	}
+	// 	if result.ProgressInfo == Progress_ERRORED {
+	// 		// don't send anything after error
+	// 		break
+	// 	}
+	// 	time.Sleep(s.sendDelay)
+	// }
+
 	//     associate that id with the search id
 	//     go generateSearchPipelineResults (need someway to attach results to pipeline id in thread safe manner)
 	return status.Error(codes.Unimplemented, "Method unimplemented")

@@ -107,30 +107,6 @@ func NewServer(userAgent string, resultDir string, sendDelay int, numUpdates int
 	return server
 }
 
-// TODO(jtorrez): implement this if it stays in MR, may not be in final API
-func (s *Server) StartSession(ctx context.Context, req *StartSessionRequest) (*StartSessionResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
-}
-
-// TODO(jtorrez): implement this if it stays in MR, may not be in final API
-func (s *Server) EndSession(ctx context.Context, req *EndSessionRequest) (*EndSessionResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
-}
-
-// TODO(jtorrez): implement this if it stays in MR, may not be in final API
-func (s *Server) StartProblem(ctx context.Context, req *StartProblemRequest) (*StartProblemResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
-}
-
-func (s *Server) UpdateProblem(ctx context.Context, req *UpdateProblemRequest) (*UpdateProblemResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
-}
-
-// TODO(jtorrez): implement this if it stays in MR, may not be in final API
-func (s *Server) EndProblem(ctx context.Context, req *EndProblemRequest) (*EndProblemResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
-}
-
 // SearchPipelines generates a searchID, kicks off a pipeline search internally, and returns a SearchResponse immediately
 func (s *Server) SearchPipelines(ctx context.Context, req *SearchPipelinesRequest) (*SearchPipelinesResponse, error) {
 	log.Infof("Received SearchPipelines - %v", req)
@@ -205,6 +181,30 @@ func (s *Server) PipelineExport(ctx context.Context, req *PipelineExportRequest)
 }
 
 func (s *Server) ListPrimitives(ctx context.Context, req *ListPrimitivesRequest) (*ListPrimitivesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+// TODO(jtorrez): implement this if it stays in MR, may not be in final API
+func (s *Server) StartSession(ctx context.Context, req *StartSessionRequest) (*StartSessionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+// TODO(jtorrez): implement this if it stays in MR, may not be in final API
+func (s *Server) EndSession(ctx context.Context, req *EndSessionRequest) (*EndSessionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+// TODO(jtorrez): implement this if it stays in MR, may not be in final API
+func (s *Server) StartProblem(ctx context.Context, req *StartProblemRequest) (*StartProblemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+func (s *Server) UpdateProblem(ctx context.Context, req *UpdateProblemRequest) (*UpdateProblemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+// TODO(jtorrez): implement this if it stays in MR, may not be in final API
+func (s *Server) EndProblem(ctx context.Context, req *EndProblemRequest) (*EndProblemResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 

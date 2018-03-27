@@ -163,18 +163,14 @@ func (s *Server) validateSearch(searchID string) error {
 
 func (s *Server) EndSearchPipelines(ctx context.Context, req *EndSearchPipelinesRequest) (*EndSearchPipelinesResponse, error) {
 	searchID := req.GetSearchId()
-	err := s.releaseSearchResources(searchID)
+	err := s.validateSearch(searchID)
 	if err != nil {
-		// handle the err bruv
-		// generate an appropriate grpc error code
-		// err = status.Error(<code>, <msg>)
+		return nil, err
 	}
-	return &EndSearchPipelinesResponse{}, err
-}
 
-// releaseSearchResources releases all system resources related to searchID
-func (s *Server) releaseSearchResources(searchID string) error {
-	return nil
+	s.endSearchIDs.Add(searchID)
+	s.searchIDs.Remove(searchID)
+	return &EndSearchPipelinesResponse{}, nil
 }
 
 func (s *Server) StopSearchPipelines(ctx context.Context, req *StopSearchPipelinesRequest) (*StopSearchPipelinesResponse, error) {

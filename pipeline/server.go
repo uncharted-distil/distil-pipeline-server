@@ -9,9 +9,10 @@ import (
 	// "path/filepath"
 	// "strconv"
 	// "strings"
-	"golang.org/x/net/context"
 	"sync"
 	"time"
+
+	"golang.org/x/net/context"
 	// uuid generation
 	"github.com/satori/go.uuid"
 	// data structures
@@ -128,6 +129,7 @@ func (s *Server) SearchPipelines(ctx context.Context, req *SearchPipelinesReques
 	return resp, nil
 }
 
+// GetSearchPipelinesResults returns a stream of pipeline results associated with a previously issued request
 func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest, stream Core_GetSearchPipelinesResultsServer) error {
 	log.Infof("Received GetSearchPipelinesResults - %v", req)
 	searchID := req.GetSearchId()
@@ -202,6 +204,8 @@ func (s *Server) validateSearch(searchID string) error {
 	return nil
 }
 
+// EndSearchPipelines Releases resources associated with a previusly issued search request.
+// NOTE(cbethune): Does this require that a Stop request has been issued?
 func (s *Server) EndSearchPipelines(ctx context.Context, req *EndSearchPipelinesRequest) (*EndSearchPipelinesResponse, error) {
 	log.Infof("Received EndSearchPipelines - %v", req)
 	searchID := req.GetSearchId()
@@ -215,65 +219,84 @@ func (s *Server) EndSearchPipelines(ctx context.Context, req *EndSearchPipelines
 	return &EndSearchPipelinesResponse{}, nil
 }
 
+// StopSearchPipelines Stops a running pipeline search request can be stopped.
+// NOTE(cbethune): Does this allow for a search to be restarted via a search request that uses the
+// same ID?
 func (s *Server) StopSearchPipelines(ctx context.Context, req *StopSearchPipelinesRequest) (*StopSearchPipelinesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// DescribePipeline generates a pipeline description struct for a given pipeline.
 func (s *Server) DescribePipeline(ctx context.Context, req *DescribePipelineRequest) (*DescribePipelineResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// ScorePipeline generates a score for a given pipeline.
 func (s *Server) ScorePipeline(ctx context.Context, req *ScorePipelineRequest) (*ScorePipelineResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// GetScorePipelineResults returns a stream of pipeline score results for a previously issued  scoring request.
 func (s *Server) GetScorePipelineResults(req *GetScorePipelineResultsRequest, stream Core_GetScorePipelineResultsServer) error {
 	return status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// FitPipeline fits a pipeline to training data.
 func (s *Server) FitPipeline(ctx context.Context, req *FitPipelineRequest) (*FitPipelineResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// GetFitPipelineResults returns a stream of pipeline fit result for a previously issued fit request.
 func (s *Server) GetFitPipelineResults(req *GetFitPipelineResultsRequest, stream Core_GetFitPipelineResultsServer) error {
 	return status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// ProducePipeline executes a pipeline on supplied data.
 func (s *Server) ProducePipeline(ctx context.Context, req *ProducePipelineRequest) (*ProducePipelineResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// GetProducePipelineResults returns a stream of pipeline results for a previously issued produce request.
 func (s *Server) GetProducePipelineResults(req *GetProducePipelineResultsRequest, stream Core_GetProducePipelineResultsServer) error {
 	return status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// PipelineExport exports a previously generated pipeline.  The pipeline needs to have had a fit step
+// executed on it to be valid for export.
 func (s *Server) PipelineExport(ctx context.Context, req *PipelineExportRequest) (*PipelineExportResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// ListPrimitives returns a list of TA1 primitives that TA3 is allowed to use in pre-processing pipeline
+// specifications.
 func (s *Server) ListPrimitives(ctx context.Context, req *ListPrimitivesRequest) (*ListPrimitivesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// StartSession creates a new session.
 // TODO(jtorrez): implement this if it stays in MR, may not be in final API
 func (s *Server) StartSession(ctx context.Context, req *StartSessionRequest) (*StartSessionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// EndSession ends an existing session.
 // TODO(jtorrez): implement this if it stays in MR, may not be in final API
 func (s *Server) EndSession(ctx context.Context, req *EndSessionRequest) (*EndSessionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// StartProblem creates a new problem instance.
 // TODO(jtorrez): implement this if it stays in MR, may not be in final API
 func (s *Server) StartProblem(ctx context.Context, req *StartProblemRequest) (*StartProblemResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// UpdateProblem updates an existing problem instance.
 func (s *Server) UpdateProblem(ctx context.Context, req *UpdateProblemRequest) (*UpdateProblemResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
+// EndProblem marks a problem as no longer used so that associated resources can be cleaned up.
 // TODO(jtorrez): implement this if it stays in MR, may not be in final API
 func (s *Server) EndProblem(ctx context.Context, req *EndProblemRequest) (*EndProblemResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")

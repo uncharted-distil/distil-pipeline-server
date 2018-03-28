@@ -34,8 +34,16 @@ compile: lint
 watch:
 	@./run.sh
 
+sync_api:
+	@git submodule update --remote --init --recursive
+
+sync_and_gen: sync_api proto
+
 proto:
-	@protoc -I /usr/local/include -I ./pipeline ./pipeline/*.proto --go_out=plugins=grpc:./pipeline
+	@protoc -I /usr/local/include \
+		-I ./pipeline/ta3ta2-api \
+	       	./pipeline/ta3ta2-api/*.proto \
+		--go_out=plugins=grpc:./pipeline
 
 test: build
 	@go test $(shell glide novendor)
@@ -46,3 +54,4 @@ install:
 	@go get -u github.com/unchartedsoftware/witch
 	@go get -u github.com/golang/protobuf/protoc-gen-go
 	@glide install
+	@git submodule update --init --recursive

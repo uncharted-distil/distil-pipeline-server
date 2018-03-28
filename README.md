@@ -30,6 +30,24 @@ Build, watch, and run server:
 make watch
 ```
 
+## Syncing TA2-TA3 Submodule
+
+The `pipeline/ta3ta2-api` submodule is set up to track the D3M program level [TA2-TA3 API Repo](https://gitlab.com/datadrivendiscovery/ta3ta2-api).
+It is currently set up to track the `preprocessing_api2` branch where active development is taking place on the new version of the API. The branch
+being tracked can be adjusted by changing the `branch` field in the `.gitmodules` file, if necessary.
+
+Cloning of the contents of the submodule has been included in the `make install` command, but only for the latest commit that was commited to
+this repo to ensure nothing is broken upon installation. If you would like to update the submodule to track the newest commits on the branch:
+
+```bash
+make sync_api
+```
+
+If you would like to both sync the submodule with the latest commits AND generate new GRPC/Protobuf source:
+
+```bash
+make sync_and_gen
+```
 
 ## Generating GRPC/Protobuf Source
 

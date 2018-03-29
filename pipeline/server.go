@@ -3,9 +3,9 @@ package pipeline
 import (
 	"bytes"
 	"compress/gzip"
-	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"reflect"
 	// "path/filepath"
 	// "strconv"
 	// "strings"
@@ -20,6 +20,7 @@ import (
 	// grpc and protobuf
 	"github.com/golang/protobuf/proto"
 	protobuf "github.com/golang/protobuf/protoc-gen-go/descriptor"
+	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -81,17 +82,28 @@ func getAPIVersion() string {
 
 // Server represents a basic distil pipeline server.
 type Server struct {
-	sessionIDs    *set.Set
-	endSessionIDs *set.Set
-	searchIDs     *set.Set
-	endSearchIDs  *set.Set
-	pipelineIDs   *set.Set
-	userAgent     string
-	resultDir     string
-	sendDelay     time.Duration
-	numUpdates    int
-	errPercentage float64
-	maxPipelines  int
+	sessionIDs         *set.Set
+	endSessionIDs      *set.Set
+	searchIDs          *set.Set
+	searchRequests     map[string]*SearchPipelinesRequest
+	endSearchIDs       *set.Set
+	pipelineIDs        *set.Set
+	pipelineProblemIDs map[string]string
+	scoreIDs           *set.Set
+	scoreRequests      map[string]*ScorePipelineRequest
+	fitIDs             *set.Set
+	fitCompleteIDs     *set.Set
+	fitPipelineIDs     map[string]string
+	produceIDs         *set.Set
+	produceRequests    map[string]*ProducePipelineRequest
+	problemIDs         *set.Set
+	problemRequests    map[string]*StartProblemRequest
+	userAgent          string
+	resultDir          string
+	sendDelay          time.Duration
+	numUpdates         int
+	errPercentage      float64
+	maxPipelines       int
 }
 
 // NewServer creates a new pipeline server instance.  ID maps are initialized with place holder values
@@ -103,7 +115,18 @@ func NewServer(userAgent string, resultDir string, sendDelay int,
 	server.endSessionIDs = set.New("test-end-session-id")
 	server.searchIDs = set.New()
 	server.endSearchIDs = set.New()
+	server.searchRequests = make(map[string]*SearchPipelinesRequest)
 	server.pipelineIDs = set.New("test-pipeline-id")
+	server.pipelineProblemIDs = make(map[string]string)
+	server.scoreIDs = set.New()
+	server.scoreRequests = make(map[string]*ScorePipelineRequest)
+	server.fitIDs = set.New()
+	server.fitCompleteIDs = set.New()
+	server.fitPipelineIDs = make(map[string]string)
+	server.produceIDs = set.New()
+	server.produceRequests = make(map[string]*ProducePipelineRequest)
+	server.problemIDs = set.New()
+	server.problemRequests = make(map[string]*StartProblemRequest)
 	server.userAgent = userAgent
 	server.resultDir = resultDir
 	server.sendDelay = time.Duration(sendDelay) * time.Millisecond
@@ -120,6 +143,7 @@ func (s *Server) SearchPipelines(ctx context.Context, req *SearchPipelinesReques
 	// generate search_id
 	id := uuid.NewV1().String()
 	s.searchIDs.Add(id)
+	s.searchRequests[id] = req
 
 	// NOTE(jtorrez): could get fancy here and kick-off a goroutine that starts generating pipeline results
 	// but leaving that out of first pass dummy results implementation, should also be analyzing request to
@@ -137,6 +161,14 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 	if err != nil {
 		return err
 	}
+
+	// retrieve the search request and find the associated problem ID
+	searchRequest, ok := s.searchRequests[searchID]
+	if !ok {
+		log.Errorf("failed to find persisted search request %s", searchID)
+		return status.Errorf(codes.Internal, "failed to find persisted search request %s", searchID)
+	}
+	problemID := searchRequest.GetProblemId()
 
 	// randomly generate number of pipelines to "find"
 	pipelinesFound := rand.Intn(s.maxPipelines)
@@ -160,8 +192,10 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 			defer wg.Done()
 
 			pipelineID := uuid.NewV4().String()
-			// save the pipeline ID for subsequent calls
+			// save the pipeline ID  and its associated problem ID for subsequent calls
 			s.pipelineIDs.Add(pipelineID)
+			s.pipelineProblemIDs[pipelineID] = problemID
+
 			resp := &GetSearchPipelinesResultsResponse{
 				PipelineId: pipelineID,
 				// NOTE(jtorrez): according to comments in proto file, InternalScore field should be NaN
@@ -205,7 +239,8 @@ func (s *Server) validateSearch(searchID string) error {
 }
 
 // EndSearchPipelines Releases resources associated with a previusly issued search request.
-// NOTE(cbethune): Does this require that a Stop request has been issued?
+// NOTE(cbethune): Does this require that a Stop request has been issued?  Do we consider pipelines produced by this
+// request as no longer valid for score, fit, and produce calls?
 func (s *Server) EndSearchPipelines(ctx context.Context, req *EndSearchPipelinesRequest) (*EndSearchPipelinesResponse, error) {
 	log.Infof("Received EndSearchPipelines - %v", req)
 	searchID := req.GetSearchId()
@@ -219,11 +254,17 @@ func (s *Server) EndSearchPipelines(ctx context.Context, req *EndSearchPipelines
 	return &EndSearchPipelinesResponse{}, nil
 }
 
-// StopSearchPipelines Stops a running pipeline search request can be stopped.
+// StopSearchPipelines Stops a running pipeline search request.
 // NOTE(cbethune): Does this allow for a search to be restarted via a search request that uses the
 // same ID?
 func (s *Server) StopSearchPipelines(ctx context.Context, req *StopSearchPipelinesRequest) (*StopSearchPipelinesResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+	log.Infof("Received StopSearchPipelines - %v", req)
+	searchID := req.GetSearchId()
+	err := s.validateSearch(searchID)
+	if err != nil {
+		return nil, err
+	}
+	return &StopSearchPipelinesResponse{}, nil
 }
 
 // DescribePipeline generates a pipeline description struct for a given pipeline.
@@ -231,40 +272,294 @@ func (s *Server) DescribePipeline(ctx context.Context, req *DescribePipelineRequ
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
-// ScorePipeline generates a score for a given pipeline.
+func (s *Server) validatePipeline(pipelineID string) error {
+	// If the pipelineID doesn't exist return an error
+	// the API doesn't include a way to commnicate that an ID doesn't exist so using
+	// the gRPC built in error codes
+	if !s.pipelineIDs.Has(pipelineID) {
+		return status.Errorf(codes.NotFound, "PipelineID: %s doesn't exist", pipelineID)
+	}
+	return nil
+}
+
+// ScorePipeline generates a score fo a given pipeline.
 func (s *Server) ScorePipeline(ctx context.Context, req *ScorePipelineRequest) (*ScorePipelineResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+	log.Infof("Received ScorePipeline - %v", req)
+	pipelineID := req.GetPipelineId()
+	err := s.validatePipeline(pipelineID)
+	if err != nil {
+		return nil, err
+	}
+	// save the request
+	scoreID := uuid.NewV4().String()
+	s.scoreIDs.Add(scoreID)
+	s.scoreRequests[scoreID] = req
+	response := &ScorePipelineResponse{scoreID}
+	return response, err
 }
 
 // GetScorePipelineResults returns a stream of pipeline score results for a previously issued  scoring request.
 func (s *Server) GetScorePipelineResults(req *GetScorePipelineResultsRequest, stream Core_GetScorePipelineResultsServer) error {
-	return status.Error(codes.Unimplemented, "Method unimplemented")
+	log.Infof("Received GetScorePipelineResults - %v", req)
+	scoreID := req.GetRequestId()
+
+	// make sure the score request is available
+	if !s.scoreIDs.Has(scoreID) {
+		return status.Errorf(codes.NotFound, "ScoreID: %s doesn't exist", scoreID)
+	}
+	request, ok := s.scoreRequests[scoreID]
+	if !ok {
+		log.Errorf("Score request for %s not persisted", scoreID)
+		return status.Errorf(codes.Internal, "Score request for %s not persisted", scoreID)
+	}
+
+	// reflect the request scoring metric and give it some random data
+	metrics := request.GetPerformanceMetrics()
+	scores := []*Score{}
+	for _, metric := range metrics {
+		scores = append(scores, &Score{
+			Metric: metric,
+			Value: &Value{
+				Value: &Value_Double{rand.Float64()},
+			},
+		})
+	}
+
+	// sleep for a bit
+	randomDelay := rand.Intn(int(s.sendDelay))
+	start := time.Now()
+	time.Sleep(time.Duration(randomDelay) * time.Millisecond)
+	end := time.Now()
+
+	// convert times to protobuf timestamp format
+	tsStart, err := ptypes.TimestampProto(start)
+	if err != nil {
+		log.Error(err)
+		return status.Errorf(codes.Internal, "convert start timestamp error: %s", err)
+	}
+	tsEnd, err := ptypes.TimestampProto(end)
+	if err != nil {
+		log.Error(err)
+		return status.Errorf(codes.Internal, "convert failed to convert end timestamp error: %s", err)
+	}
+
+	// create response structure
+	scoreResult := &GetScorePipelineResultsResponse{
+		Progress: Progress_COMPLETED,
+		Start:    tsStart,
+		End:      tsEnd,
+		Scores:   scores,
+	}
+
+	// send response
+	err = stream.Send(scoreResult)
+	if err != nil {
+		log.Error(err)
+		return status.Errorf(codes.Internal, "failed to send score result: %s", err)
+	}
+
+	return nil
 }
 
 // FitPipeline fits a pipeline to training data.
 func (s *Server) FitPipeline(ctx context.Context, req *FitPipelineRequest) (*FitPipelineResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+	log.Infof("Received FitPipeline - %v", req)
+	pipelineID := req.GetPipelineId()
+	err := s.validatePipeline(pipelineID)
+	if err != nil {
+		return nil, err
+	}
+	// save the request ID and mark the fit as incomplete (produce can't execute on an incomplete fit)
+	fitID := uuid.NewV4().String()
+	s.fitIDs.Add(fitID)
+	s.fitPipelineIDs[fitID] = pipelineID
+	response := &FitPipelineResponse{fitID}
+	return response, nil
 }
 
 // GetFitPipelineResults returns a stream of pipeline fit result for a previously issued fit request.
 func (s *Server) GetFitPipelineResults(req *GetFitPipelineResultsRequest, stream Core_GetFitPipelineResultsServer) error {
-	return status.Error(codes.Unimplemented, "Method unimplemented")
+	log.Infof("Received GetFitPipelineResults - %v", req)
+	fitID := req.GetRequestId()
+
+	// make sure the score request is available
+	if !s.fitIDs.Has(fitID) {
+		return status.Errorf(codes.NotFound, "FitID: %s doesn't exist", fitID)
+	}
+
+	// apply a random delay
+	randomDelay := rand.Intn(int(s.sendDelay))
+	start := time.Now()
+	time.Sleep(time.Duration(randomDelay) * time.Millisecond)
+	end := time.Now()
+
+	// mark the fit for the pipeline as complete
+	pipelineID, ok := s.fitPipelineIDs[fitID]
+	if !ok {
+		log.Errorf("Failed to find pipelineID for fitID: %s", fitID)
+		return status.Errorf(codes.Internal, "no pipeline ID for fitID: %s", fitID)
+	}
+	s.fitCompleteIDs.Add(pipelineID)
+
+	// convert times to protobuf timestamp format
+	tsStart, err := ptypes.TimestampProto(start)
+	if err != nil {
+		log.Error(err)
+		return status.Errorf(codes.Internal, "convert start timestamp error: %s", err)
+	}
+	tsEnd, err := ptypes.TimestampProto(end)
+	if err != nil {
+		log.Error(err)
+		return status.Errorf(codes.Internal, "convert failed to convert end timestamp error: %s", err)
+	}
+
+	// create the response message
+	fitResult := &GetFitPipelineResultsResponse{
+		Progress: Progress_COMPLETED,
+		Start:    tsStart,
+		End:      tsEnd,
+	}
+
+	// send it back to the caller
+	err = stream.Send(fitResult)
+	if err != nil {
+		log.Error(err)
+		return status.Errorf(codes.Internal, "failed to send score result: %s", err)
+	}
+
+	return nil
 }
 
-// ProducePipeline executes a pipeline on supplied data.
+// ProducePipeline executes a pipeline on supplied data.  Pipeline needs to have previously executed a fit.
 func (s *Server) ProducePipeline(ctx context.Context, req *ProducePipelineRequest) (*ProducePipelineResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+	log.Infof("Received ProducePipeline - %v", req)
+
+	// check to see if the pipeline exists
+	pipelineID := req.GetPipelineId()
+	err := s.validatePipeline(pipelineID)
+	if err != nil {
+		return nil, err
+	}
+
+	// only allow produce on a pipeline that has had a fit run against it
+	if !s.fitCompleteIDs.Has(pipelineID) {
+		return nil, status.Errorf(codes.FailedPrecondition, "fit not executed for pipeline %s", pipelineID)
+	}
+
+	produceID := uuid.NewV4().String()
+	s.produceIDs.Add(produceID)
+	s.produceRequests[produceID] = req
+	response := &ProducePipelineResponse{produceID}
+	return response, nil
 }
 
 // GetProducePipelineResults returns a stream of pipeline results for a previously issued produce request.
 func (s *Server) GetProducePipelineResults(req *GetProducePipelineResultsRequest, stream Core_GetProducePipelineResultsServer) error {
-	return status.Error(codes.Unimplemented, "Method unimplemented")
+	log.Infof("Received GetFitPipelineResults - %v", req)
+	produceID := req.GetRequestId()
+
+	// make sure the score request is available
+	if !s.produceIDs.Has(produceID) {
+		return status.Errorf(codes.NotFound, "ProduceID: %s doesn't exist", produceID)
+	}
+
+	produceRequest, ok := s.produceRequests[produceID]
+	if !ok {
+		log.Errorf("Produce request for %s not persisted", produceID)
+		return status.Errorf(codes.Internal, "Produce request for %s not persisted", produceID)
+	}
+
+	// apply a random delay
+	randomDelay := rand.Intn(int(s.sendDelay))
+	start := time.Now()
+	time.Sleep(time.Duration(randomDelay) * time.Millisecond)
+	end := time.Now()
+
+	// convert times to protobuf timestamp format
+	tsStart, err := ptypes.TimestampProto(start)
+	if err != nil {
+		log.Error(err)
+		return status.Errorf(codes.Internal, "convert start timestamp error: %s", err)
+	}
+	tsEnd, err := ptypes.TimestampProto(end)
+	if err != nil {
+		log.Error(err)
+		return status.Errorf(codes.Internal, "convert failed to convert end timestamp error: %s", err)
+	}
+
+	// we only look at first output and expect it to be a dataset URI
+	inputs := produceRequest.GetInputs()
+	if len(inputs) != 1 {
+		log.Errorf("Expecting single input - produce request includes %d", len(inputs))
+		return status.Errorf(codes.Internal, "Expecting single input - produce request includes %d", len(inputs))
+	}
+
+	// pull the dataset URI out of the produce request
+	datasetURIValue, ok := inputs[0].GetValue().(*Value_DatasetUri)
+	if !ok {
+		inputType := reflect.TypeOf(inputs[0].GetValue())
+		log.Errorf("Expecting Value_DatasetURI - produce input is %s", inputType)
+		return status.Errorf(codes.Internal, "Expecting single input - produce request includes %s", inputType)
+	}
+
+	// pull the target and task out of the problem
+	problemID, ok := s.pipelineProblemIDs[produceRequest.GetPipelineId()]
+	if !ok {
+		log.Errorf("Failed to find problemID for pipelineID: %s", produceRequest.GetPipelineId())
+		return status.Errorf(codes.Internal, "no problem ID for pipelineID: %s", produceRequest.GetPipelineId())
+	}
+	problemRequest, ok := s.problemRequests[problemID]
+	if !ok {
+		log.Errorf("Failed to find problem request for problemID: %s", problemID)
+		return status.Errorf(codes.Internal, "no problem request for problemID: %s", problemID)
+	}
+	taskType := problemRequest.GetProblem().GetProblem().GetTaskType()
+	targetName := problemRequest.GetProblem().GetInputs()[0].GetTargets()[0].GetColumnName()
+
+	// create mock result data
+	resultURI, err := createResults(produceRequest.GetPipelineId(), datasetURIValue.DatasetUri, s.resultDir, targetName, taskType)
+	if err != nil {
+		log.Errorf("Failed to generate result data")
+		return status.Errorf(codes.Internal, "Failed to generate result data")
+	}
+	exposedOutputs := map[string]*Value{
+		"outputs.0": &Value{
+			Value: &Value_DatasetUri{
+				DatasetUri: resultURI,
+			},
+		},
+	}
+
+	// create a response emessage
+	produceResults := &GetProducePipelineResultsResponse{
+		Progress:       Progress_COMPLETED,
+		Start:          tsStart,
+		End:            tsEnd,
+		ExposedOutputs: exposedOutputs,
+	}
+
+	// send it back to the caller
+	err = stream.Send(produceResults)
+	if err != nil {
+		log.Error(err)
+		return status.Errorf(codes.Internal, "failed to send produce result: %s", err)
+	}
+	return nil
 }
 
 // PipelineExport exports a previously generated pipeline.  The pipeline needs to have had a fit step
 // executed on it to be valid for export.
 func (s *Server) PipelineExport(ctx context.Context, req *PipelineExportRequest) (*PipelineExportResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+	log.Infof("Received ExportPipeline - %v", req)
+
+	// only allow produce on a pipeline that has had a fit run against it
+	pipelineID := req.GetPipelineId()
+	if !s.fitCompleteIDs.Has(pipelineID) {
+		return nil, status.Errorf(codes.FailedPrecondition, "fit not executed for pipeline %s", pipelineID)
+	}
+
+	response := &PipelineExportResponse{}
+	return response, nil
 }
 
 // ListPrimitives returns a list of TA1 primitives that TA3 is allowed to use in pre-processing pipeline
@@ -286,9 +581,18 @@ func (s *Server) EndSession(ctx context.Context, req *EndSessionRequest) (*EndSe
 }
 
 // StartProblem creates a new problem instance.
-// TODO(jtorrez): implement this if it stays in MR, may not be in final API
+// NOTE(cbethune): Placeholder because we need a way to get problem data into a search pipeline.  Once the
+// status of this resolves we can remove or implement fully.
 func (s *Server) StartProblem(ctx context.Context, req *StartProblemRequest) (*StartProblemResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+	// store the problem ID
+	problemID := uuid.NewV4().String()
+	s.problemIDs.Add(problemID)
+	s.problemRequests[problemID] = req
+
+	response := &StartProblemResponse{
+		ProblemId: problemID,
+	}
+	return response, nil
 }
 
 // UpdateProblem updates an existing problem instance.
@@ -300,70 +604,4 @@ func (s *Server) UpdateProblem(ctx context.Context, req *UpdateProblemRequest) (
 // TODO(jtorrez): implement this if it stays in MR, may not be in final API
 func (s *Server) EndProblem(ctx context.Context, req *EndProblemRequest) (*EndProblemResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
-}
-
-func buildLookup(d3mIndexCol int, csvPath string, fieldName string) (map[string]string, error) {
-	// Load the data
-	data, err := loadDataCsv(csvPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Map the field name to an index.
-	var fieldIndex = -1
-	for i, field := range data[0] {
-		if fieldName == field {
-			fieldIndex = i
-		}
-	}
-
-	// Map the index to the target value.
-	lookup := make(map[string]string)
-	for _, row := range data[1:] {
-		lookup[row[d3mIndexCol]] = row[fieldIndex]
-	}
-
-	return lookup, nil
-}
-
-func getCategories(csvPath string, fieldName string) ([]string, error) {
-	// Load the data
-	data, err := loadDataCsv(csvPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Map the field name to an index.
-	var fieldIndex = -1
-	for i, field := range data[0] {
-		if fieldName == field {
-			fieldIndex = i
-		}
-	}
-
-	log.Infof("%v", data[0])
-
-	if fieldIndex < 0 {
-		log.Errorf("Could not find field %s in data", fieldName)
-		return nil, fmt.Errorf("Could not find field %s in data", fieldName)
-	}
-
-	// Get the distinct category values.
-	categories := make(map[string]bool)
-	for _, row := range data[1:] {
-		if !categories[row[fieldIndex]] {
-			categories[row[fieldIndex]] = true
-		}
-	}
-
-	// Extract the keys to return the possible categories.
-	i := 0
-	keys := make([]string, len(categories))
-	for k := range categories {
-		keys[i] = k
-		i++
-	}
-	log.Infof("Categories: %v", keys)
-
-	return keys, nil
 }

@@ -82,28 +82,26 @@ func getAPIVersion() string {
 
 // Server represents a basic distil pipeline server.
 type Server struct {
-	sessionIDs         *set.Set
-	endSessionIDs      *set.Set
-	searchIDs          *set.Set
-	searchRequests     map[string]*SearchPipelinesRequest
-	endSearchIDs       *set.Set
-	pipelineIDs        *set.Set
-	pipelineProblemIDs map[string]string
-	scoreIDs           *set.Set
-	scoreRequests      map[string]*ScorePipelineRequest
-	fitIDs             *set.Set
-	fitCompleteIDs     *set.Set
-	fitPipelineIDs     map[string]string
-	produceIDs         *set.Set
-	produceRequests    map[string]*ProducePipelineRequest
-	problemIDs         *set.Set
-	problemRequests    map[string]*StartProblemRequest
-	userAgent          string
-	resultDir          string
-	sendDelay          time.Duration
-	numUpdates         int
-	errPercentage      float64
-	maxPipelines       int
+	sessionIDs        *set.Set
+	endSessionIDs     *set.Set
+	searchIDs         *set.Set
+	searchRequests    map[string]*SearchPipelinesRequest
+	endSearchIDs      *set.Set
+	pipelineIDs       *set.Set
+	pipelineSearchIDs map[string]string
+	scoreIDs          *set.Set
+	scoreRequests     map[string]*ScorePipelineRequest
+	fitIDs            *set.Set
+	fitCompleteIDs    *set.Set
+	fitPipelineIDs    map[string]string
+	produceIDs        *set.Set
+	produceRequests   map[string]*ProducePipelineRequest
+	userAgent         string
+	resultDir         string
+	sendDelay         time.Duration
+	numUpdates        int
+	errPercentage     float64
+	maxPipelines      int
 }
 
 // NewServer creates a new pipeline server instance.  ID maps are initialized with place holder values
@@ -117,7 +115,7 @@ func NewServer(userAgent string, resultDir string, sendDelay int,
 	server.endSearchIDs = set.New()
 	server.searchRequests = make(map[string]*SearchPipelinesRequest)
 	server.pipelineIDs = set.New("test-pipeline-id")
-	server.pipelineProblemIDs = make(map[string]string)
+	server.pipelineSearchIDs = make(map[string]string)
 	server.scoreIDs = set.New()
 	server.scoreRequests = make(map[string]*ScorePipelineRequest)
 	server.fitIDs = set.New()
@@ -125,8 +123,6 @@ func NewServer(userAgent string, resultDir string, sendDelay int,
 	server.fitPipelineIDs = make(map[string]string)
 	server.produceIDs = set.New()
 	server.produceRequests = make(map[string]*ProducePipelineRequest)
-	server.problemIDs = set.New()
-	server.problemRequests = make(map[string]*StartProblemRequest)
 	server.userAgent = userAgent
 	server.resultDir = resultDir
 	server.sendDelay = time.Duration(sendDelay) * time.Millisecond
@@ -162,14 +158,6 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 		return err
 	}
 
-	// retrieve the search request and find the associated problem ID
-	searchRequest, ok := s.searchRequests[searchID]
-	if !ok {
-		log.Errorf("failed to find persisted search request %s", searchID)
-		return status.Errorf(codes.Internal, "failed to find persisted search request %s", searchID)
-	}
-	problemID := searchRequest.GetProblemId()
-
 	// randomly generate number of pipelines to "find"
 	pipelinesFound := rand.Intn(s.maxPipelines)
 
@@ -194,7 +182,7 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 			pipelineID := uuid.NewV4().String()
 			// save the pipeline ID  and its associated problem ID for subsequent calls
 			s.pipelineIDs.Add(pipelineID)
-			s.pipelineProblemIDs[pipelineID] = problemID
+			s.pipelineSearchIDs[pipelineID] = req.GetSearchId()
 
 			resp := &GetSearchPipelinesResultsResponse{
 				PipelineId: pipelineID,
@@ -503,18 +491,18 @@ func (s *Server) GetProducePipelineResults(req *GetProducePipelineResultsRequest
 	}
 
 	// pull the target and task out of the problem
-	problemID, ok := s.pipelineProblemIDs[produceRequest.GetPipelineId()]
+	searchID, ok := s.pipelineSearchIDs[produceRequest.GetPipelineId()]
 	if !ok {
-		log.Errorf("Failed to find problemID for pipelineID: %s", produceRequest.GetPipelineId())
+		log.Errorf("Failed to find searchID for pipelineID: %s", produceRequest.GetPipelineId())
 		return status.Errorf(codes.Internal, "no problem ID for pipelineID: %s", produceRequest.GetPipelineId())
 	}
-	problemRequest, ok := s.problemRequests[problemID]
+	searchRequest, ok := s.searchRequests[searchID]
 	if !ok {
-		log.Errorf("Failed to find problem request for problemID: %s", problemID)
-		return status.Errorf(codes.Internal, "no problem request for problemID: %s", problemID)
+		log.Errorf("Failed to find search request for searchID: %s", searchID)
+		return status.Errorf(codes.Internal, "no problem request for searchID: %s", searchID)
 	}
-	taskType := problemRequest.GetProblem().GetProblem().GetTaskType()
-	targetName := problemRequest.GetProblem().GetInputs()[0].GetTargets()[0].GetColumnName()
+	taskType := searchRequest.GetProblem().GetProblem().GetTaskType()
+	targetName := searchRequest.GetProblem().GetInputs()[0].GetTargets()[0].GetColumnName()
 
 	// create mock result data
 	resultURI, err := createResults(produceRequest.GetPipelineId(), datasetURIValue.DatasetUri, s.resultDir, targetName, taskType)
@@ -562,46 +550,21 @@ func (s *Server) PipelineExport(ctx context.Context, req *PipelineExportRequest)
 	return response, nil
 }
 
+// UpdateProblem updates the problem defintion associated with a search
+func (s *Server) UpdateProblem(ctx context.Context, req *UpdateProblemRequest) (*UpdateProblemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
 // ListPrimitives returns a list of TA1 primitives that TA3 is allowed to use in pre-processing pipeline
 // specifications.
 func (s *Server) ListPrimitives(ctx context.Context, req *ListPrimitivesRequest) (*ListPrimitivesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
-// StartSession creates a new session.
-// TODO(jtorrez): implement this if it stays in MR, may not be in final API
-func (s *Server) StartSession(ctx context.Context, req *StartSessionRequest) (*StartSessionResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
-}
-
-// EndSession ends an existing session.
-// TODO(jtorrez): implement this if it stays in MR, may not be in final API
-func (s *Server) EndSession(ctx context.Context, req *EndSessionRequest) (*EndSessionResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
-}
-
-// StartProblem creates a new problem instance.
-// NOTE(cbethune): Placeholder because we need a way to get problem data into a search pipeline.  Once the
-// status of this resolves we can remove or implement fully.
-func (s *Server) StartProblem(ctx context.Context, req *StartProblemRequest) (*StartProblemResponse, error) {
-	// store the problem ID
-	problemID := uuid.NewV4().String()
-	s.problemIDs.Add(problemID)
-	s.problemRequests[problemID] = req
-
-	response := &StartProblemResponse{
-		ProblemId: problemID,
+// ListAllowedValueTypes returns a list of all value types supported by this TA2 system to the caller
+func (s *Server) ListAllowedValueTypes(ctx context.Context, req *ListAllowedValueTypesRequest) (*ListAllowedValueTypesResponse, error) {
+	response := &ListAllowedValueTypesResponse{
+		AllowedValueTypes: []ValueType{ValueType_DATASET_URI},
 	}
 	return response, nil
-}
-
-// UpdateProblem updates an existing problem instance.
-func (s *Server) UpdateProblem(ctx context.Context, req *UpdateProblemRequest) (*UpdateProblemResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
-}
-
-// EndProblem marks a problem as no longer used so that associated resources can be cleaned up.
-// TODO(jtorrez): implement this if it stays in MR, may not be in final API
-func (s *Server) EndProblem(ctx context.Context, req *EndProblemRequest) (*EndProblemResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }

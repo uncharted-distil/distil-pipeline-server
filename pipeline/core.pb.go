@@ -14,16 +14,8 @@ It is generated from these files:
 It has these top-level messages:
 	ScoringConfiguration
 	Score
-	StartSessionRequest
-	StartSessionResponse
-	EndSessionRequest
-	EndSessionResponse
-	StartProblemRequest
-	StartProblemResponse
 	UpdateProblemRequest
 	UpdateProblemResponse
-	EndProblemRequest
-	EndProblemResponse
 	SearchPipelinesRequest
 	SearchPipelinesResponse
 	EndSearchPipelinesRequest
@@ -56,6 +48,8 @@ It has these top-level messages:
 	PipelineExportResponse
 	ListPrimitivesRequest
 	ListPrimitivesResponse
+	ListAllowedValueTypesRequest
+	ListAllowedValueTypesResponse
 	ContainerArgument
 	PrimitiveArgument
 	DataArgument
@@ -76,7 +70,6 @@ It has these top-level messages:
 	Problem
 	ProblemTarget
 	ProblemInput
-	ProblemOutputs
 	ProblemDescription
 	ValueError
 	Value
@@ -111,7 +104,7 @@ const (
 	// Default value. Not to be used.
 	EvaluationMethod_EVALUATION_METHOD_UNDEFINED EvaluationMethod = 0
 	// The following are the only evaluation methods required
-	// to be supported for the ScorePipeline call.
+	// to be supported for the "ScorePipeline" call.
 	EvaluationMethod_HOLDOUT EvaluationMethod = 1
 	EvaluationMethod_K_FOLD  EvaluationMethod = 2
 	// The rest are defined to allow expressing internal evaluation
@@ -269,161 +262,6 @@ func (m *Score) GetValue() *Value {
 	return nil
 }
 
-// Start a new session and share configuration to each other.
-// Multiple parallel sessions can exist at the same time.
-type StartSessionRequest struct {
-	// Some string identifying the name and version of the TA3 system.
-	UserAgent string `protobuf:"bytes,1,opt,name=user_agent,json=userAgent" json:"user_agent,omitempty"`
-	// Shall be set to "protocol_version" above.
-	Version string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty"`
-	// Which value types can a TA2 system use to communicate values to a TA3 system?
-	// The order is important as TA2 system will try value types in order until one works out,
-	// or an error will be returned instead of the value.
-	AllowedValueTypes []ValueType `protobuf:"varint,3,rep,packed,name=allowed_value_types,json=allowedValueTypes,enum=ValueType" json:"allowed_value_types,omitempty"`
-}
-
-func (m *StartSessionRequest) Reset()                    { *m = StartSessionRequest{} }
-func (m *StartSessionRequest) String() string            { return proto.CompactTextString(m) }
-func (*StartSessionRequest) ProtoMessage()               {}
-func (*StartSessionRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
-
-func (m *StartSessionRequest) GetUserAgent() string {
-	if m != nil {
-		return m.UserAgent
-	}
-	return ""
-}
-
-func (m *StartSessionRequest) GetVersion() string {
-	if m != nil {
-		return m.Version
-	}
-	return ""
-}
-
-func (m *StartSessionRequest) GetAllowedValueTypes() []ValueType {
-	if m != nil {
-		return m.AllowedValueTypes
-	}
-	return nil
-}
-
-type StartSessionResponse struct {
-	// An ID identifying this session. This string should be at least 22 characters
-	// long to ensure enough entropy to not be guessable.
-	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId" json:"session_id,omitempty"`
-	// Some string identifying the name and version of the TA2 system.
-	UserAgent string `protobuf:"bytes,2,opt,name=user_agent,json=userAgent" json:"user_agent,omitempty"`
-	// Shall be set to "protocol_version" above.
-	Version string `protobuf:"bytes,3,opt,name=version" json:"version,omitempty"`
-	// Which value types can a TA3 system use to communicate values to a TA2 system?
-	// The order is important as TA3 system will try value types in order until one works out,
-	// or an error will be returned instead of the value.
-	AllowedValueTypes []ValueType `protobuf:"varint,4,rep,packed,name=allowed_value_types,json=allowedValueTypes,enum=ValueType" json:"allowed_value_types,omitempty"`
-}
-
-func (m *StartSessionResponse) Reset()                    { *m = StartSessionResponse{} }
-func (m *StartSessionResponse) String() string            { return proto.CompactTextString(m) }
-func (*StartSessionResponse) ProtoMessage()               {}
-func (*StartSessionResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
-
-func (m *StartSessionResponse) GetSessionId() string {
-	if m != nil {
-		return m.SessionId
-	}
-	return ""
-}
-
-func (m *StartSessionResponse) GetUserAgent() string {
-	if m != nil {
-		return m.UserAgent
-	}
-	return ""
-}
-
-func (m *StartSessionResponse) GetVersion() string {
-	if m != nil {
-		return m.Version
-	}
-	return ""
-}
-
-func (m *StartSessionResponse) GetAllowedValueTypes() []ValueType {
-	if m != nil {
-		return m.AllowedValueTypes
-	}
-	return nil
-}
-
-// Ends the session and releases all resources used by the session.
-// Any IDs provided during the session are not usable anymore after this call.
-type EndSessionRequest struct {
-	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId" json:"session_id,omitempty"`
-}
-
-func (m *EndSessionRequest) Reset()                    { *m = EndSessionRequest{} }
-func (m *EndSessionRequest) String() string            { return proto.CompactTextString(m) }
-func (*EndSessionRequest) ProtoMessage()               {}
-func (*EndSessionRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
-
-func (m *EndSessionRequest) GetSessionId() string {
-	if m != nil {
-		return m.SessionId
-	}
-	return ""
-}
-
-type EndSessionResponse struct {
-}
-
-func (m *EndSessionResponse) Reset()                    { *m = EndSessionResponse{} }
-func (m *EndSessionResponse) String() string            { return proto.CompactTextString(m) }
-func (*EndSessionResponse) ProtoMessage()               {}
-func (*EndSessionResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
-
-// Starts a new problem (or better, a new problem context inside which a search
-// for the solution to the problem is done).
-// Multiple parallel problems can be worked on at the same time.
-type StartProblemRequest struct {
-	SessionId string              `protobuf:"bytes,1,opt,name=session_id,json=sessionId" json:"session_id,omitempty"`
-	Problem   *ProblemDescription `protobuf:"bytes,2,opt,name=problem" json:"problem,omitempty"`
-}
-
-func (m *StartProblemRequest) Reset()                    { *m = StartProblemRequest{} }
-func (m *StartProblemRequest) String() string            { return proto.CompactTextString(m) }
-func (*StartProblemRequest) ProtoMessage()               {}
-func (*StartProblemRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
-
-func (m *StartProblemRequest) GetSessionId() string {
-	if m != nil {
-		return m.SessionId
-	}
-	return ""
-}
-
-func (m *StartProblemRequest) GetProblem() *ProblemDescription {
-	if m != nil {
-		return m.Problem
-	}
-	return nil
-}
-
-type StartProblemResponse struct {
-	ProblemId string `protobuf:"bytes,1,opt,name=problem_id,json=problemId" json:"problem_id,omitempty"`
-}
-
-func (m *StartProblemResponse) Reset()                    { *m = StartProblemResponse{} }
-func (m *StartProblemResponse) String() string            { return proto.CompactTextString(m) }
-func (*StartProblemResponse) ProtoMessage()               {}
-func (*StartProblemResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
-
-func (m *StartProblemResponse) GetProblemId() string {
-	if m != nil {
-		return m.ProblemId
-	}
-	return ""
-}
-
 // Updates problem with new description. This upates problem description also for all
 // ongoing pipeline searches associated with this problem. Internal behavior of TA2
 // is unspecified: it can simply start a new search using new problem description, or
@@ -432,7 +270,7 @@ func (m *StartProblemResponse) GetProblemId() string {
 // this call returns, all found pipelines for searches associated with this problem
 // should be for the updated problem description.
 type UpdateProblemRequest struct {
-	ProblemId string `protobuf:"bytes,1,opt,name=problem_id,json=problemId" json:"problem_id,omitempty"`
+	SearchId string `protobuf:"bytes,1,opt,name=search_id,json=searchId" json:"search_id,omitempty"`
 	// New problem description. It has to be provided in full and it replaces existing
 	// problem description.
 	Problem *ProblemDescription `protobuf:"bytes,2,opt,name=problem" json:"problem,omitempty"`
@@ -441,11 +279,11 @@ type UpdateProblemRequest struct {
 func (m *UpdateProblemRequest) Reset()                    { *m = UpdateProblemRequest{} }
 func (m *UpdateProblemRequest) String() string            { return proto.CompactTextString(m) }
 func (*UpdateProblemRequest) ProtoMessage()               {}
-func (*UpdateProblemRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
+func (*UpdateProblemRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
-func (m *UpdateProblemRequest) GetProblemId() string {
+func (m *UpdateProblemRequest) GetSearchId() string {
 	if m != nil {
-		return m.ProblemId
+		return m.SearchId
 	}
 	return ""
 }
@@ -463,42 +301,23 @@ type UpdateProblemResponse struct {
 func (m *UpdateProblemResponse) Reset()                    { *m = UpdateProblemResponse{} }
 func (m *UpdateProblemResponse) String() string            { return proto.CompactTextString(m) }
 func (*UpdateProblemResponse) ProtoMessage()               {}
-func (*UpdateProblemResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
-
-// Ends the problem and releases all resources used by the problem.
-// Any pipeline search IDs and pipeline IDs done as part of the problem
-// are not usable anymore after this call.
-type EndProblemRequest struct {
-	ProblemId string `protobuf:"bytes,1,opt,name=problem_id,json=problemId" json:"problem_id,omitempty"`
-}
-
-func (m *EndProblemRequest) Reset()                    { *m = EndProblemRequest{} }
-func (m *EndProblemRequest) String() string            { return proto.CompactTextString(m) }
-func (*EndProblemRequest) ProtoMessage()               {}
-func (*EndProblemRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
-
-func (m *EndProblemRequest) GetProblemId() string {
-	if m != nil {
-		return m.ProblemId
-	}
-	return ""
-}
-
-type EndProblemResponse struct {
-}
-
-func (m *EndProblemResponse) Reset()                    { *m = EndProblemResponse{} }
-func (m *EndProblemResponse) String() string            { return proto.CompactTextString(m) }
-func (*EndProblemResponse) ProtoMessage()               {}
-func (*EndProblemResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
+func (*UpdateProblemResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
 // Starts a new pipeline search. Found pipelines have not necessary be fitted on the provided
 // inputs. Problem description and inputs are used only to help guide the search process.
 // Consider found pipelines just a static descriptions of pipelines at this stage.
 // Multiple parallel pipeline searches can happen at the same time.
 type SearchPipelinesRequest struct {
+	// Some string identifying the name and version of the TA3 system.
+	UserAgent string `protobuf:"bytes,1,opt,name=user_agent,json=userAgent" json:"user_agent,omitempty"`
+	// Shall be set to "protocol_version" above.
+	Version string `protobuf:"bytes,2,opt,name=version" json:"version,omitempty"`
+	// Which value types can a TA2 system use to communicate values to a TA3 system?
+	// The order is important as TA2 system will try value types in order until one works out,
+	// or an error will be returned instead of the value.
+	AllowedValueTypes []ValueType `protobuf:"varint,3,rep,packed,name=allowed_value_types,json=allowedValueTypes,enum=ValueType" json:"allowed_value_types,omitempty"`
 	// Problem description to use for the pipeline search.
-	ProblemId string `protobuf:"bytes,1,opt,name=problem_id,json=problemId" json:"problem_id,omitempty"`
+	Problem *ProblemDescription `protobuf:"bytes,4,opt,name=problem" json:"problem,omitempty"`
 	// A pipeline template to use for search or to execute. If template is ommited, then a
 	// regular pipeline search is done. If template consists only of one placeholder step,
 	// then a regular pipeline search is done to replace that step. If there is no placeholder
@@ -512,23 +331,44 @@ type SearchPipelinesRequest struct {
 	// Moreover, such fully specified pipeline with fixed hyper-parametres can have any
 	// inputs and any outputs. Otherwise pipelines have to be from a Dataset container value
 	// to predictions.
-	Template *PipelineDescription `protobuf:"bytes,2,opt,name=template" json:"template,omitempty"`
+	Template *PipelineDescription `protobuf:"bytes,5,opt,name=template" json:"template,omitempty"`
 	// Pipeline inputs used during pipeline search. They have to point to be Dataset container
 	// values. Order matters as each input is mapped to template's input in order. Optional
 	// for templates without a placeholder and with all hyper-parameters fixed.
-	Inputs []*Value `protobuf:"bytes,3,rep,name=inputs" json:"inputs,omitempty"`
+	Inputs []*Value `protobuf:"bytes,6,rep,name=inputs" json:"inputs,omitempty"`
 }
 
 func (m *SearchPipelinesRequest) Reset()                    { *m = SearchPipelinesRequest{} }
 func (m *SearchPipelinesRequest) String() string            { return proto.CompactTextString(m) }
 func (*SearchPipelinesRequest) ProtoMessage()               {}
-func (*SearchPipelinesRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
+func (*SearchPipelinesRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
 
-func (m *SearchPipelinesRequest) GetProblemId() string {
+func (m *SearchPipelinesRequest) GetUserAgent() string {
 	if m != nil {
-		return m.ProblemId
+		return m.UserAgent
 	}
 	return ""
+}
+
+func (m *SearchPipelinesRequest) GetVersion() string {
+	if m != nil {
+		return m.Version
+	}
+	return ""
+}
+
+func (m *SearchPipelinesRequest) GetAllowedValueTypes() []ValueType {
+	if m != nil {
+		return m.AllowedValueTypes
+	}
+	return nil
+}
+
+func (m *SearchPipelinesRequest) GetProblem() *ProblemDescription {
+	if m != nil {
+		return m.Problem
+	}
+	return nil
 }
 
 func (m *SearchPipelinesRequest) GetTemplate() *PipelineDescription {
@@ -550,12 +390,16 @@ type SearchPipelinesResponse struct {
 	// An ID identifying this pipeline search. This string should be at least 22 characters
 	// long to ensure enough entropy to not be guessable.
 	SearchId string `protobuf:"bytes,1,opt,name=search_id,json=searchId" json:"search_id,omitempty"`
+	// Some string identifying the name and version of the TA2 system.
+	UserAgent string `protobuf:"bytes,2,opt,name=user_agent,json=userAgent" json:"user_agent,omitempty"`
+	// Shall be set to "protocol_version" above.
+	Version string `protobuf:"bytes,3,opt,name=version" json:"version,omitempty"`
 }
 
 func (m *SearchPipelinesResponse) Reset()                    { *m = SearchPipelinesResponse{} }
 func (m *SearchPipelinesResponse) String() string            { return proto.CompactTextString(m) }
 func (*SearchPipelinesResponse) ProtoMessage()               {}
-func (*SearchPipelinesResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
+func (*SearchPipelinesResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
 
 func (m *SearchPipelinesResponse) GetSearchId() string {
 	if m != nil {
@@ -564,8 +408,26 @@ func (m *SearchPipelinesResponse) GetSearchId() string {
 	return ""
 }
 
-// Ends the search and releases all resources used by the pipeline search.
-// Found pipeline IDs during the search are not usable anymore after this call.
+func (m *SearchPipelinesResponse) GetUserAgent() string {
+	if m != nil {
+		return m.UserAgent
+	}
+	return ""
+}
+
+func (m *SearchPipelinesResponse) GetVersion() string {
+	if m != nil {
+		return m.Version
+	}
+	return ""
+}
+
+// Ends the search and releases all resources associated with the pipeline search.
+// If the call is made in parallel with a running search and results are being streamed,
+// the search is stopped and the "GetSearchPipelinesResults" stream is closed by TA2
+// (as it happens when the search is concluded on its own, or when search is stopped
+// by "StopSearchPipelines"). Found pipeline IDs during the search are not usable
+// anymore after this call.
 type EndSearchPipelinesRequest struct {
 	SearchId string `protobuf:"bytes,1,opt,name=search_id,json=searchId" json:"search_id,omitempty"`
 }
@@ -573,7 +435,7 @@ type EndSearchPipelinesRequest struct {
 func (m *EndSearchPipelinesRequest) Reset()                    { *m = EndSearchPipelinesRequest{} }
 func (m *EndSearchPipelinesRequest) String() string            { return proto.CompactTextString(m) }
 func (*EndSearchPipelinesRequest) ProtoMessage()               {}
-func (*EndSearchPipelinesRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
+func (*EndSearchPipelinesRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
 
 func (m *EndSearchPipelinesRequest) GetSearchId() string {
 	if m != nil {
@@ -588,9 +450,12 @@ type EndSearchPipelinesResponse struct {
 func (m *EndSearchPipelinesResponse) Reset()                    { *m = EndSearchPipelinesResponse{} }
 func (m *EndSearchPipelinesResponse) String() string            { return proto.CompactTextString(m) }
 func (*EndSearchPipelinesResponse) ProtoMessage()               {}
-func (*EndSearchPipelinesResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
+func (*EndSearchPipelinesResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
 
-// Stops the search but leaves all pipelines available.
+// Stops the search but leaves all already found pipelines available.
+// If the call is made in parallel with a running search and results are being streamed,
+// the "GetSearchPipelinesResults" stream is closed by TA2 (as it happens when the search
+// is concluded on its own). Search cannot be re-started after it has been stopped.
 type StopSearchPipelinesRequest struct {
 	SearchId string `protobuf:"bytes,1,opt,name=search_id,json=searchId" json:"search_id,omitempty"`
 }
@@ -598,7 +463,7 @@ type StopSearchPipelinesRequest struct {
 func (m *StopSearchPipelinesRequest) Reset()                    { *m = StopSearchPipelinesRequest{} }
 func (m *StopSearchPipelinesRequest) String() string            { return proto.CompactTextString(m) }
 func (*StopSearchPipelinesRequest) ProtoMessage()               {}
-func (*StopSearchPipelinesRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{16} }
+func (*StopSearchPipelinesRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
 
 func (m *StopSearchPipelinesRequest) GetSearchId() string {
 	if m != nil {
@@ -613,7 +478,7 @@ type StopSearchPipelinesResponse struct {
 func (m *StopSearchPipelinesResponse) Reset()                    { *m = StopSearchPipelinesResponse{} }
 func (m *StopSearchPipelinesResponse) String() string            { return proto.CompactTextString(m) }
 func (*StopSearchPipelinesResponse) ProtoMessage()               {}
-func (*StopSearchPipelinesResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{17} }
+func (*StopSearchPipelinesResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
 
 // Decription of a TA2 score done during pipeline search. Because there is a wide range of potential
 // approaches TA2 can use to score candidate pipelines this might not capture what your TA2 is doing.
@@ -626,7 +491,7 @@ type PipelineSearchScore struct {
 func (m *PipelineSearchScore) Reset()                    { *m = PipelineSearchScore{} }
 func (m *PipelineSearchScore) String() string            { return proto.CompactTextString(m) }
 func (*PipelineSearchScore) ProtoMessage()               {}
-func (*PipelineSearchScore) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{18} }
+func (*PipelineSearchScore) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
 
 func (m *PipelineSearchScore) GetScoringConfiguration() *ScoringConfiguration {
 	if m != nil {
@@ -652,7 +517,7 @@ func (m *GetSearchPipelinesResultsRequest) Reset()         { *m = GetSearchPipel
 func (m *GetSearchPipelinesResultsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetSearchPipelinesResultsRequest) ProtoMessage()    {}
 func (*GetSearchPipelinesResultsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{19}
+	return fileDescriptor0, []int{11}
 }
 
 func (m *GetSearchPipelinesResultsRequest) GetSearchId() string {
@@ -682,7 +547,7 @@ func (m *GetSearchPipelinesResultsResponse) Reset()         { *m = GetSearchPipe
 func (m *GetSearchPipelinesResultsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetSearchPipelinesResultsResponse) ProtoMessage()    {}
 func (*GetSearchPipelinesResultsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{20}
+	return fileDescriptor0, []int{12}
 }
 
 func (m *GetSearchPipelinesResultsResponse) GetPipelineId() string {
@@ -714,7 +579,7 @@ type DescribePipelineRequest struct {
 func (m *DescribePipelineRequest) Reset()                    { *m = DescribePipelineRequest{} }
 func (m *DescribePipelineRequest) String() string            { return proto.CompactTextString(m) }
 func (*DescribePipelineRequest) ProtoMessage()               {}
-func (*DescribePipelineRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{21} }
+func (*DescribePipelineRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
 
 func (m *DescribePipelineRequest) GetPipelineId() string {
 	if m != nil {
@@ -731,7 +596,7 @@ type PrimitiveStepDescription struct {
 func (m *PrimitiveStepDescription) Reset()                    { *m = PrimitiveStepDescription{} }
 func (m *PrimitiveStepDescription) String() string            { return proto.CompactTextString(m) }
 func (*PrimitiveStepDescription) ProtoMessage()               {}
-func (*PrimitiveStepDescription) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{22} }
+func (*PrimitiveStepDescription) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
 
 func (m *PrimitiveStepDescription) GetHyperparams() map[string]*Value {
 	if m != nil {
@@ -748,7 +613,7 @@ type SubpipelineStepDescription struct {
 func (m *SubpipelineStepDescription) Reset()                    { *m = SubpipelineStepDescription{} }
 func (m *SubpipelineStepDescription) String() string            { return proto.CompactTextString(m) }
 func (*SubpipelineStepDescription) ProtoMessage()               {}
-func (*SubpipelineStepDescription) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{23} }
+func (*SubpipelineStepDescription) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
 
 func (m *SubpipelineStepDescription) GetSteps() []*StepDescription {
 	if m != nil {
@@ -767,7 +632,7 @@ type StepDescription struct {
 func (m *StepDescription) Reset()                    { *m = StepDescription{} }
 func (m *StepDescription) String() string            { return proto.CompactTextString(m) }
 func (*StepDescription) ProtoMessage()               {}
-func (*StepDescription) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{24} }
+func (*StepDescription) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{16} }
 
 type isStepDescription_Step interface {
 	isStepDescription_Step()
@@ -888,7 +753,7 @@ type DescribePipelineResponse struct {
 func (m *DescribePipelineResponse) Reset()                    { *m = DescribePipelineResponse{} }
 func (m *DescribePipelineResponse) String() string            { return proto.CompactTextString(m) }
 func (*DescribePipelineResponse) ProtoMessage()               {}
-func (*DescribePipelineResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{25} }
+func (*DescribePipelineResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{17} }
 
 func (m *DescribePipelineResponse) GetPipeline() *PipelineDescription {
 	if m != nil {
@@ -918,7 +783,7 @@ type StepProgress struct {
 func (m *StepProgress) Reset()                    { *m = StepProgress{} }
 func (m *StepProgress) String() string            { return proto.CompactTextString(m) }
 func (*StepProgress) ProtoMessage()               {}
-func (*StepProgress) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{26} }
+func (*StepProgress) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{18} }
 
 func (m *StepProgress) GetProgress() Progress {
 	if m != nil {
@@ -969,7 +834,7 @@ type PipelineRunUser struct {
 func (m *PipelineRunUser) Reset()                    { *m = PipelineRunUser{} }
 func (m *PipelineRunUser) String() string            { return proto.CompactTextString(m) }
 func (*PipelineRunUser) ProtoMessage()               {}
-func (*PipelineRunUser) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{27} }
+func (*PipelineRunUser) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{19} }
 
 func (m *PipelineRunUser) GetId() string {
 	if m != nil {
@@ -1008,7 +873,7 @@ type ScorePipelineRequest struct {
 func (m *ScorePipelineRequest) Reset()                    { *m = ScorePipelineRequest{} }
 func (m *ScorePipelineRequest) String() string            { return proto.CompactTextString(m) }
 func (*ScorePipelineRequest) ProtoMessage()               {}
-func (*ScorePipelineRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{28} }
+func (*ScorePipelineRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{20} }
 
 func (m *ScorePipelineRequest) GetPipelineId() string {
 	if m != nil {
@@ -1052,7 +917,7 @@ type ScorePipelineResponse struct {
 func (m *ScorePipelineResponse) Reset()                    { *m = ScorePipelineResponse{} }
 func (m *ScorePipelineResponse) String() string            { return proto.CompactTextString(m) }
 func (*ScorePipelineResponse) ProtoMessage()               {}
-func (*ScorePipelineResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{29} }
+func (*ScorePipelineResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{21} }
 
 func (m *ScorePipelineResponse) GetRequestId() string {
 	if m != nil {
@@ -1070,7 +935,7 @@ type GetScorePipelineResultsRequest struct {
 func (m *GetScorePipelineResultsRequest) Reset()                    { *m = GetScorePipelineResultsRequest{} }
 func (m *GetScorePipelineResultsRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetScorePipelineResultsRequest) ProtoMessage()               {}
-func (*GetScorePipelineResultsRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{30} }
+func (*GetScorePipelineResultsRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{22} }
 
 func (m *GetScorePipelineResultsRequest) GetRequestId() string {
 	if m != nil {
@@ -1094,7 +959,7 @@ func (m *GetScorePipelineResultsResponse) Reset()         { *m = GetScorePipelin
 func (m *GetScorePipelineResultsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetScorePipelineResultsResponse) ProtoMessage()    {}
 func (*GetScorePipelineResultsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{31}
+	return fileDescriptor0, []int{23}
 }
 
 func (m *GetScorePipelineResultsResponse) GetProgress() Progress {
@@ -1156,7 +1021,7 @@ type FitPipelineRequest struct {
 func (m *FitPipelineRequest) Reset()                    { *m = FitPipelineRequest{} }
 func (m *FitPipelineRequest) String() string            { return proto.CompactTextString(m) }
 func (*FitPipelineRequest) ProtoMessage()               {}
-func (*FitPipelineRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{32} }
+func (*FitPipelineRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{24} }
 
 func (m *FitPipelineRequest) GetPipelineId() string {
 	if m != nil {
@@ -1200,7 +1065,7 @@ type FitPipelineResponse struct {
 func (m *FitPipelineResponse) Reset()                    { *m = FitPipelineResponse{} }
 func (m *FitPipelineResponse) String() string            { return proto.CompactTextString(m) }
 func (*FitPipelineResponse) ProtoMessage()               {}
-func (*FitPipelineResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{33} }
+func (*FitPipelineResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{25} }
 
 func (m *FitPipelineResponse) GetRequestId() string {
 	if m != nil {
@@ -1218,7 +1083,7 @@ type GetFitPipelineResultsRequest struct {
 func (m *GetFitPipelineResultsRequest) Reset()                    { *m = GetFitPipelineResultsRequest{} }
 func (m *GetFitPipelineResultsRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetFitPipelineResultsRequest) ProtoMessage()               {}
-func (*GetFitPipelineResultsRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{34} }
+func (*GetFitPipelineResultsRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{26} }
 
 func (m *GetFitPipelineResultsRequest) GetRequestId() string {
 	if m != nil {
@@ -1244,7 +1109,7 @@ type GetFitPipelineResultsResponse struct {
 func (m *GetFitPipelineResultsResponse) Reset()                    { *m = GetFitPipelineResultsResponse{} }
 func (m *GetFitPipelineResultsResponse) String() string            { return proto.CompactTextString(m) }
 func (*GetFitPipelineResultsResponse) ProtoMessage()               {}
-func (*GetFitPipelineResultsResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{35} }
+func (*GetFitPipelineResultsResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{27} }
 
 func (m *GetFitPipelineResultsResponse) GetProgress() Progress {
 	if m != nil {
@@ -1311,7 +1176,7 @@ type ProducePipelineRequest struct {
 func (m *ProducePipelineRequest) Reset()                    { *m = ProducePipelineRequest{} }
 func (m *ProducePipelineRequest) String() string            { return proto.CompactTextString(m) }
 func (*ProducePipelineRequest) ProtoMessage()               {}
-func (*ProducePipelineRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{36} }
+func (*ProducePipelineRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{28} }
 
 func (m *ProducePipelineRequest) GetPipelineId() string {
 	if m != nil {
@@ -1355,7 +1220,7 @@ type ProducePipelineResponse struct {
 func (m *ProducePipelineResponse) Reset()                    { *m = ProducePipelineResponse{} }
 func (m *ProducePipelineResponse) String() string            { return proto.CompactTextString(m) }
 func (*ProducePipelineResponse) ProtoMessage()               {}
-func (*ProducePipelineResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{37} }
+func (*ProducePipelineResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{29} }
 
 func (m *ProducePipelineResponse) GetRequestId() string {
 	if m != nil {
@@ -1374,7 +1239,7 @@ func (m *GetProducePipelineResultsRequest) Reset()         { *m = GetProducePipe
 func (m *GetProducePipelineResultsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetProducePipelineResultsRequest) ProtoMessage()    {}
 func (*GetProducePipelineResultsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{38}
+	return fileDescriptor0, []int{30}
 }
 
 func (m *GetProducePipelineResultsRequest) GetRequestId() string {
@@ -1402,7 +1267,7 @@ func (m *GetProducePipelineResultsResponse) Reset()         { *m = GetProducePip
 func (m *GetProducePipelineResultsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetProducePipelineResultsResponse) ProtoMessage()    {}
 func (*GetProducePipelineResultsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{39}
+	return fileDescriptor0, []int{31}
 }
 
 func (m *GetProducePipelineResultsResponse) GetProgress() Progress {
@@ -1453,14 +1318,19 @@ type PipelineExportRequest struct {
 	PipelineId string `protobuf:"bytes,1,opt,name=pipeline_id,json=pipelineId" json:"pipeline_id,omitempty"`
 	// Pipeline rank to be used for the exported pipeline. Each exported pipeline
 	// has rank metadata associated with it. There has to be at least one pipeline
-	// exported and only one can and should have rank 1.
+	// exported and only one can and should have rank 1, but assuring this is
+	// responsibility of a TA3. If an export of a pipeline is requested again with the
+	// same rank as previously (for same or different pipeline), a TA2 system should
+	// override the previous export with a new one (or by removing files associated
+	// with the previous export and creating new files, or by overriding files with new
+	// content). Filenames of exported files are left to be choosen by the TA2 system.
 	Rank int32 `protobuf:"varint,2,opt,name=rank" json:"rank,omitempty"`
 }
 
 func (m *PipelineExportRequest) Reset()                    { *m = PipelineExportRequest{} }
 func (m *PipelineExportRequest) String() string            { return proto.CompactTextString(m) }
 func (*PipelineExportRequest) ProtoMessage()               {}
-func (*PipelineExportRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{40} }
+func (*PipelineExportRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{32} }
 
 func (m *PipelineExportRequest) GetPipelineId() string {
 	if m != nil {
@@ -1482,7 +1352,7 @@ type PipelineExportResponse struct {
 func (m *PipelineExportResponse) Reset()                    { *m = PipelineExportResponse{} }
 func (m *PipelineExportResponse) String() string            { return proto.CompactTextString(m) }
 func (*PipelineExportResponse) ProtoMessage()               {}
-func (*PipelineExportResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{41} }
+func (*PipelineExportResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{33} }
 
 // List all primitives known to TA2, their IDs, versions, names, and digests. Using this
 // information TA3 knows which primitives to put into pipeline templates. To narrow down
@@ -1491,20 +1361,12 @@ func (*PipelineExportResponse) Descriptor() ([]byte, []int) { return fileDescrip
 // TA3 can use results of this call to map primitives to metadata (from Python code or
 // primitive annotations) on its own.
 type ListPrimitivesRequest struct {
-	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId" json:"session_id,omitempty"`
 }
 
 func (m *ListPrimitivesRequest) Reset()                    { *m = ListPrimitivesRequest{} }
 func (m *ListPrimitivesRequest) String() string            { return proto.CompactTextString(m) }
 func (*ListPrimitivesRequest) ProtoMessage()               {}
-func (*ListPrimitivesRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{42} }
-
-func (m *ListPrimitivesRequest) GetSessionId() string {
-	if m != nil {
-		return m.SessionId
-	}
-	return ""
-}
+func (*ListPrimitivesRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{34} }
 
 type ListPrimitivesResponse struct {
 	Primitives []*Primitive `protobuf:"bytes,1,rep,name=primitives" json:"primitives,omitempty"`
@@ -1513,11 +1375,40 @@ type ListPrimitivesResponse struct {
 func (m *ListPrimitivesResponse) Reset()                    { *m = ListPrimitivesResponse{} }
 func (m *ListPrimitivesResponse) String() string            { return proto.CompactTextString(m) }
 func (*ListPrimitivesResponse) ProtoMessage()               {}
-func (*ListPrimitivesResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{43} }
+func (*ListPrimitivesResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{35} }
 
 func (m *ListPrimitivesResponse) GetPrimitives() []*Primitive {
 	if m != nil {
 		return m.Primitives
+	}
+	return nil
+}
+
+// List which value types can a TA3 system use to communicate values to a TA2 system?
+// This call is also suitable for a ping/pong call to check that TA2 is ready.
+type ListAllowedValueTypesRequest struct {
+}
+
+func (m *ListAllowedValueTypesRequest) Reset()                    { *m = ListAllowedValueTypesRequest{} }
+func (m *ListAllowedValueTypesRequest) String() string            { return proto.CompactTextString(m) }
+func (*ListAllowedValueTypesRequest) ProtoMessage()               {}
+func (*ListAllowedValueTypesRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{36} }
+
+type ListAllowedValueTypesResponse struct {
+	// Which value types can a TA3 system use to communicate values to a TA2 system?
+	// The order is important as TA3 system will try value types in order until one works out,
+	// or an error will be returned instead of the value.
+	AllowedValueTypes []ValueType `protobuf:"varint,1,rep,packed,name=allowed_value_types,json=allowedValueTypes,enum=ValueType" json:"allowed_value_types,omitempty"`
+}
+
+func (m *ListAllowedValueTypesResponse) Reset()                    { *m = ListAllowedValueTypesResponse{} }
+func (m *ListAllowedValueTypesResponse) String() string            { return proto.CompactTextString(m) }
+func (*ListAllowedValueTypesResponse) ProtoMessage()               {}
+func (*ListAllowedValueTypesResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{37} }
+
+func (m *ListAllowedValueTypesResponse) GetAllowedValueTypes() []ValueType {
+	if m != nil {
+		return m.AllowedValueTypes
 	}
 	return nil
 }
@@ -1534,16 +1425,8 @@ var E_ProtocolVersion = &proto.ExtensionDesc{
 func init() {
 	proto.RegisterType((*ScoringConfiguration)(nil), "ScoringConfiguration")
 	proto.RegisterType((*Score)(nil), "Score")
-	proto.RegisterType((*StartSessionRequest)(nil), "StartSessionRequest")
-	proto.RegisterType((*StartSessionResponse)(nil), "StartSessionResponse")
-	proto.RegisterType((*EndSessionRequest)(nil), "EndSessionRequest")
-	proto.RegisterType((*EndSessionResponse)(nil), "EndSessionResponse")
-	proto.RegisterType((*StartProblemRequest)(nil), "StartProblemRequest")
-	proto.RegisterType((*StartProblemResponse)(nil), "StartProblemResponse")
 	proto.RegisterType((*UpdateProblemRequest)(nil), "UpdateProblemRequest")
 	proto.RegisterType((*UpdateProblemResponse)(nil), "UpdateProblemResponse")
-	proto.RegisterType((*EndProblemRequest)(nil), "EndProblemRequest")
-	proto.RegisterType((*EndProblemResponse)(nil), "EndProblemResponse")
 	proto.RegisterType((*SearchPipelinesRequest)(nil), "SearchPipelinesRequest")
 	proto.RegisterType((*SearchPipelinesResponse)(nil), "SearchPipelinesResponse")
 	proto.RegisterType((*EndSearchPipelinesRequest)(nil), "EndSearchPipelinesRequest")
@@ -1576,6 +1459,8 @@ func init() {
 	proto.RegisterType((*PipelineExportResponse)(nil), "PipelineExportResponse")
 	proto.RegisterType((*ListPrimitivesRequest)(nil), "ListPrimitivesRequest")
 	proto.RegisterType((*ListPrimitivesResponse)(nil), "ListPrimitivesResponse")
+	proto.RegisterType((*ListAllowedValueTypesRequest)(nil), "ListAllowedValueTypesRequest")
+	proto.RegisterType((*ListAllowedValueTypesResponse)(nil), "ListAllowedValueTypesResponse")
 	proto.RegisterEnum("EvaluationMethod", EvaluationMethod_name, EvaluationMethod_value)
 	proto.RegisterEnum("Progress", Progress_name, Progress_value)
 	proto.RegisterExtension(E_ProtocolVersion)
@@ -1592,11 +1477,6 @@ const _ = grpc.SupportPackageIsVersion4
 // Client API for Core service
 
 type CoreClient interface {
-	StartSession(ctx context.Context, in *StartSessionRequest, opts ...grpc.CallOption) (*StartSessionResponse, error)
-	EndSession(ctx context.Context, in *EndSessionRequest, opts ...grpc.CallOption) (*EndSessionResponse, error)
-	StartProblem(ctx context.Context, in *StartProblemRequest, opts ...grpc.CallOption) (*StartProblemResponse, error)
-	UpdateProblem(ctx context.Context, in *UpdateProblemRequest, opts ...grpc.CallOption) (*UpdateProblemResponse, error)
-	EndProblem(ctx context.Context, in *EndProblemRequest, opts ...grpc.CallOption) (*EndProblemResponse, error)
 	SearchPipelines(ctx context.Context, in *SearchPipelinesRequest, opts ...grpc.CallOption) (*SearchPipelinesResponse, error)
 	GetSearchPipelinesResults(ctx context.Context, in *GetSearchPipelinesResultsRequest, opts ...grpc.CallOption) (Core_GetSearchPipelinesResultsClient, error)
 	EndSearchPipelines(ctx context.Context, in *EndSearchPipelinesRequest, opts ...grpc.CallOption) (*EndSearchPipelinesResponse, error)
@@ -1609,7 +1489,9 @@ type CoreClient interface {
 	ProducePipeline(ctx context.Context, in *ProducePipelineRequest, opts ...grpc.CallOption) (*ProducePipelineResponse, error)
 	GetProducePipelineResults(ctx context.Context, in *GetProducePipelineResultsRequest, opts ...grpc.CallOption) (Core_GetProducePipelineResultsClient, error)
 	PipelineExport(ctx context.Context, in *PipelineExportRequest, opts ...grpc.CallOption) (*PipelineExportResponse, error)
+	UpdateProblem(ctx context.Context, in *UpdateProblemRequest, opts ...grpc.CallOption) (*UpdateProblemResponse, error)
 	ListPrimitives(ctx context.Context, in *ListPrimitivesRequest, opts ...grpc.CallOption) (*ListPrimitivesResponse, error)
+	ListAllowedValueTypes(ctx context.Context, in *ListAllowedValueTypesRequest, opts ...grpc.CallOption) (*ListAllowedValueTypesResponse, error)
 }
 
 type coreClient struct {
@@ -1618,51 +1500,6 @@ type coreClient struct {
 
 func NewCoreClient(cc *grpc.ClientConn) CoreClient {
 	return &coreClient{cc}
-}
-
-func (c *coreClient) StartSession(ctx context.Context, in *StartSessionRequest, opts ...grpc.CallOption) (*StartSessionResponse, error) {
-	out := new(StartSessionResponse)
-	err := grpc.Invoke(ctx, "/Core/StartSession", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *coreClient) EndSession(ctx context.Context, in *EndSessionRequest, opts ...grpc.CallOption) (*EndSessionResponse, error) {
-	out := new(EndSessionResponse)
-	err := grpc.Invoke(ctx, "/Core/EndSession", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *coreClient) StartProblem(ctx context.Context, in *StartProblemRequest, opts ...grpc.CallOption) (*StartProblemResponse, error) {
-	out := new(StartProblemResponse)
-	err := grpc.Invoke(ctx, "/Core/StartProblem", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *coreClient) UpdateProblem(ctx context.Context, in *UpdateProblemRequest, opts ...grpc.CallOption) (*UpdateProblemResponse, error) {
-	out := new(UpdateProblemResponse)
-	err := grpc.Invoke(ctx, "/Core/UpdateProblem", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *coreClient) EndProblem(ctx context.Context, in *EndProblemRequest, opts ...grpc.CallOption) (*EndProblemResponse, error) {
-	out := new(EndProblemResponse)
-	err := grpc.Invoke(ctx, "/Core/EndProblem", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *coreClient) SearchPipelines(ctx context.Context, in *SearchPipelinesRequest, opts ...grpc.CallOption) (*SearchPipelinesResponse, error) {
@@ -1865,6 +1702,15 @@ func (c *coreClient) PipelineExport(ctx context.Context, in *PipelineExportReque
 	return out, nil
 }
 
+func (c *coreClient) UpdateProblem(ctx context.Context, in *UpdateProblemRequest, opts ...grpc.CallOption) (*UpdateProblemResponse, error) {
+	out := new(UpdateProblemResponse)
+	err := grpc.Invoke(ctx, "/Core/UpdateProblem", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *coreClient) ListPrimitives(ctx context.Context, in *ListPrimitivesRequest, opts ...grpc.CallOption) (*ListPrimitivesResponse, error) {
 	out := new(ListPrimitivesResponse)
 	err := grpc.Invoke(ctx, "/Core/ListPrimitives", in, out, c.cc, opts...)
@@ -1874,14 +1720,18 @@ func (c *coreClient) ListPrimitives(ctx context.Context, in *ListPrimitivesReque
 	return out, nil
 }
 
+func (c *coreClient) ListAllowedValueTypes(ctx context.Context, in *ListAllowedValueTypesRequest, opts ...grpc.CallOption) (*ListAllowedValueTypesResponse, error) {
+	out := new(ListAllowedValueTypesResponse)
+	err := grpc.Invoke(ctx, "/Core/ListAllowedValueTypes", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for Core service
 
 type CoreServer interface {
-	StartSession(context.Context, *StartSessionRequest) (*StartSessionResponse, error)
-	EndSession(context.Context, *EndSessionRequest) (*EndSessionResponse, error)
-	StartProblem(context.Context, *StartProblemRequest) (*StartProblemResponse, error)
-	UpdateProblem(context.Context, *UpdateProblemRequest) (*UpdateProblemResponse, error)
-	EndProblem(context.Context, *EndProblemRequest) (*EndProblemResponse, error)
 	SearchPipelines(context.Context, *SearchPipelinesRequest) (*SearchPipelinesResponse, error)
 	GetSearchPipelinesResults(*GetSearchPipelinesResultsRequest, Core_GetSearchPipelinesResultsServer) error
 	EndSearchPipelines(context.Context, *EndSearchPipelinesRequest) (*EndSearchPipelinesResponse, error)
@@ -1894,101 +1744,13 @@ type CoreServer interface {
 	ProducePipeline(context.Context, *ProducePipelineRequest) (*ProducePipelineResponse, error)
 	GetProducePipelineResults(*GetProducePipelineResultsRequest, Core_GetProducePipelineResultsServer) error
 	PipelineExport(context.Context, *PipelineExportRequest) (*PipelineExportResponse, error)
+	UpdateProblem(context.Context, *UpdateProblemRequest) (*UpdateProblemResponse, error)
 	ListPrimitives(context.Context, *ListPrimitivesRequest) (*ListPrimitivesResponse, error)
+	ListAllowedValueTypes(context.Context, *ListAllowedValueTypesRequest) (*ListAllowedValueTypesResponse, error)
 }
 
 func RegisterCoreServer(s *grpc.Server, srv CoreServer) {
 	s.RegisterService(&_Core_serviceDesc, srv)
-}
-
-func _Core_StartSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StartSessionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CoreServer).StartSession(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Core/StartSession",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoreServer).StartSession(ctx, req.(*StartSessionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Core_EndSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EndSessionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CoreServer).EndSession(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Core/EndSession",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoreServer).EndSession(ctx, req.(*EndSessionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Core_StartProblem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StartProblemRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CoreServer).StartProblem(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Core/StartProblem",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoreServer).StartProblem(ctx, req.(*StartProblemRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Core_UpdateProblem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateProblemRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CoreServer).UpdateProblem(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Core/UpdateProblem",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoreServer).UpdateProblem(ctx, req.(*UpdateProblemRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Core_EndProblem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EndProblemRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CoreServer).EndProblem(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Core/EndProblem",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoreServer).EndProblem(ctx, req.(*EndProblemRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _Core_SearchPipelines_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -2219,6 +1981,24 @@ func _Core_PipelineExport_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Core_UpdateProblem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateProblemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoreServer).UpdateProblem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Core/UpdateProblem",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoreServer).UpdateProblem(ctx, req.(*UpdateProblemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Core_ListPrimitives_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListPrimitivesRequest)
 	if err := dec(in); err != nil {
@@ -2237,30 +2017,28 @@ func _Core_ListPrimitives_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Core_ListAllowedValueTypes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAllowedValueTypesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoreServer).ListAllowedValueTypes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Core/ListAllowedValueTypes",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoreServer).ListAllowedValueTypes(ctx, req.(*ListAllowedValueTypesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Core_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "Core",
 	HandlerType: (*CoreServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "StartSession",
-			Handler:    _Core_StartSession_Handler,
-		},
-		{
-			MethodName: "EndSession",
-			Handler:    _Core_EndSession_Handler,
-		},
-		{
-			MethodName: "StartProblem",
-			Handler:    _Core_StartProblem_Handler,
-		},
-		{
-			MethodName: "UpdateProblem",
-			Handler:    _Core_UpdateProblem_Handler,
-		},
-		{
-			MethodName: "EndProblem",
-			Handler:    _Core_EndProblem_Handler,
-		},
 		{
 			MethodName: "SearchPipelines",
 			Handler:    _Core_SearchPipelines_Handler,
@@ -2294,8 +2072,16 @@ var _Core_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Core_PipelineExport_Handler,
 		},
 		{
+			MethodName: "UpdateProblem",
+			Handler:    _Core_UpdateProblem_Handler,
+		},
+		{
 			MethodName: "ListPrimitives",
 			Handler:    _Core_ListPrimitives_Handler,
+		},
+		{
+			MethodName: "ListAllowedValueTypes",
+			Handler:    _Core_ListAllowedValueTypes_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
@@ -2326,126 +2112,120 @@ var _Core_serviceDesc = grpc.ServiceDesc{
 func init() { proto.RegisterFile("core.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 1925 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xdc, 0x58, 0x4f, 0x73, 0xeb, 0x48,
-	0x11, 0xb7, 0x9c, 0xd8, 0x1b, 0xb7, 0x37, 0x8e, 0xde, 0xf8, 0xef, 0x53, 0xf2, 0x92, 0xac, 0xa8,
-	0x47, 0x85, 0x57, 0xcb, 0x6c, 0x9e, 0x81, 0xb7, 0x79, 0xa1, 0xb6, 0x96, 0x6c, 0xac, 0x24, 0xde,
-	0xcd, 0xb3, 0x5d, 0xb2, 0x13, 0xa8, 0xe5, 0x20, 0x14, 0x6b, 0x9c, 0xa8, 0xd6, 0x96, 0x84, 0x24,
-	0x3f, 0xc8, 0x89, 0x2a, 0x4e, 0x40, 0x15, 0xc5, 0x89, 0x03, 0x57, 0x0e, 0x1c, 0x38, 0x71, 0xe1,
-	0x6b, 0x70, 0xda, 0x23, 0xc5, 0x61, 0x3f, 0x09, 0x25, 0xcd, 0x8c, 0xff, 0xc8, 0xb2, 0xe2, 0x6c,
-	0x51, 0x14, 0xec, 0x4d, 0xd3, 0xd3, 0xdd, 0xd3, 0xdd, 0xd3, 0xea, 0xfe, 0x4d, 0x03, 0xf4, 0x6d,
-	0x97, 0x60, 0xc7, 0xb5, 0x7d, 0x5b, 0xda, 0xbf, 0xb5, 0xed, 0xdb, 0x21, 0xf9, 0x20, 0x5c, 0xdd,
-	0x8c, 0x07, 0x1f, 0x18, 0xc4, 0xeb, 0xbb, 0xa6, 0xe3, 0xdb, 0x2e, 0xe3, 0xd8, 0x8b, 0x72, 0xf8,
-	0xe6, 0x88, 0x78, 0xbe, 0x3e, 0x72, 0x18, 0x43, 0xc1, 0x31, 0x1d, 0x32, 0x34, 0x2d, 0xae, 0x72,
-	0xcb, 0x71, 0xcd, 0x91, 0xe9, 0x9b, 0x6f, 0x39, 0x61, 0xd3, 0x71, 0xed, 0x9b, 0x21, 0x19, 0xb1,
-	0x65, 0xfe, 0xad, 0x3e, 0x1c, 0xb3, 0x3d, 0xf9, 0x9f, 0x02, 0x94, 0xba, 0x7d, 0xdb, 0x35, 0xad,
-	0xdb, 0x53, 0xdb, 0x1a, 0x98, 0xb7, 0x63, 0x57, 0xf7, 0x4d, 0xdb, 0x42, 0xdf, 0x81, 0xec, 0x88,
-	0xf8, 0x77, 0xb6, 0x51, 0x13, 0xf6, 0x85, 0x83, 0x42, 0xfd, 0x09, 0x56, 0x02, 0xb9, 0x70, 0xf3,
-	0x4d, 0xb8, 0xa1, 0x32, 0x06, 0x54, 0x82, 0xcc, 0xc0, 0x1e, 0x1a, 0x5e, 0x2d, 0xbd, 0x2f, 0x1c,
-	0x64, 0x54, 0xba, 0x40, 0x07, 0x20, 0xfa, 0xae, 0x6e, 0x5a, 0x9a, 0x4f, 0x3c, 0x5f, 0x0b, 0xb5,
-	0xd6, 0xd6, 0xf6, 0x85, 0x03, 0x41, 0x2d, 0x84, 0xf4, 0x1e, 0xf1, 0x7c, 0x35, 0xa0, 0xa2, 0x1a,
-	0xbc, 0xe3, 0xdd, 0x8d, 0x07, 0x83, 0x21, 0xa9, 0xad, 0xef, 0x0b, 0x07, 0x1b, 0x2a, 0x5f, 0xa2,
-	0x3d, 0xc8, 0xbb, 0xba, 0x65, 0xd8, 0x23, 0xcd, 0x23, 0xc4, 0xa8, 0x65, 0x42, 0xfd, 0x40, 0x49,
-	0x5d, 0x42, 0x0c, 0xb4, 0x0b, 0xe0, 0xf9, 0x81, 0xee, 0x81, 0x49, 0x8c, 0x5a, 0x36, 0x94, 0x9e,
-	0xa1, 0xc8, 0x3f, 0x81, 0x4c, 0xe0, 0x1d, 0x41, 0x2f, 0x43, 0x77, 0x5c, 0xb3, 0x1f, 0xba, 0x93,
-	0xaf, 0x3f, 0xc5, 0x1d, 0x1a, 0x94, 0x0e, 0x71, 0x07, 0xb6, 0x3b, 0xd2, 0xad, 0x3e, 0x79, 0x13,
-	0x32, 0xa8, 0x8c, 0x11, 0xed, 0x40, 0x26, 0x8c, 0x54, 0xe8, 0x56, 0xbe, 0x9e, 0xc5, 0xd7, 0xc1,
-	0x4a, 0xa5, 0x44, 0xf9, 0x77, 0x02, 0x14, 0xbb, 0xbe, 0xee, 0xfa, 0x5d, 0xe2, 0x79, 0xa6, 0x6d,
-	0xa9, 0xe4, 0xe7, 0x63, 0xe2, 0xf9, 0xe8, 0x19, 0xc0, 0xd8, 0x23, 0xae, 0xa6, 0xdf, 0x12, 0xcb,
-	0x0f, 0x0f, 0xcb, 0xa9, 0xb9, 0x80, 0x72, 0x12, 0x10, 0x02, 0x5f, 0xdf, 0x12, 0x37, 0x10, 0x08,
-	0xd5, 0xe6, 0x54, 0xbe, 0x44, 0xc7, 0x50, 0xd4, 0x87, 0x43, 0xfb, 0x17, 0xc4, 0xd0, 0xc2, 0x13,
-	0x34, 0xff, 0xde, 0x21, 0x5e, 0x6d, 0x6d, 0x7f, 0xed, 0xa0, 0x50, 0x07, 0x7a, 0x78, 0xef, 0xde,
-	0x21, 0xea, 0x13, 0xc6, 0x36, 0xa1, 0x78, 0xf2, 0x5f, 0x83, 0x5b, 0x9c, 0x33, 0xc6, 0x73, 0x6c,
-	0xcb, 0x23, 0x81, 0x35, 0x1e, 0x25, 0x69, 0xa6, 0xc1, 0xad, 0x61, 0x94, 0xa6, 0x11, 0x31, 0x36,
-	0x9d, 0x60, 0xec, 0xda, 0x4a, 0xc6, 0xae, 0xaf, 0x62, 0x6c, 0x1d, 0x9e, 0x28, 0x96, 0xb1, 0x18,
-	0xb6, 0x04, 0x43, 0xe5, 0x12, 0xa0, 0x59, 0x19, 0xea, 0x9d, 0xdc, 0x67, 0x57, 0xc0, 0xae, 0x72,
-	0x35, 0x5d, 0xe8, 0xbb, 0xf0, 0x0e, 0xfb, 0x21, 0xd8, 0xcd, 0x16, 0x79, 0x2e, 0x34, 0xd8, 0xbf,
-	0x17, 0x9c, 0xc1, 0x79, 0xe4, 0x1f, 0xb0, 0xd0, 0x4e, 0x0e, 0x99, 0x86, 0x96, 0xb1, 0xcc, 0x9c,
-	0xc2, 0x28, 0x4d, 0x43, 0x36, 0xa0, 0x74, 0xe5, 0x18, 0xba, 0x4f, 0x16, 0x8d, 0x4b, 0x10, 0x7b,
-	0xac, 0x71, 0x55, 0x28, 0x47, 0x4e, 0x61, 0xa1, 0xa1, 0x41, 0x7e, 0xd4, 0xd9, 0x2c, 0xc8, 0x51,
-	0x4d, 0xbf, 0x15, 0xa0, 0xd2, 0x25, 0xba, 0xdb, 0xbf, 0xeb, 0xb0, 0x3a, 0xe3, 0xad, 0xe8, 0xcb,
-	0x21, 0x6c, 0xf8, 0x64, 0xe4, 0x0c, 0x75, 0x9f, 0xff, 0x43, 0x25, 0xcc, 0x75, 0xcc, 0x7a, 0x33,
-	0xe1, 0x42, 0xbb, 0x90, 0x35, 0x2d, 0x67, 0xec, 0xd3, 0xb4, 0x9f, 0xfe, 0x73, 0x8c, 0x2a, 0xbf,
-	0x82, 0xea, 0x82, 0x29, 0xec, 0x3a, 0xb6, 0x21, 0xe7, 0x85, 0x5b, 0x53, 0x53, 0x36, 0x28, 0xa1,
-	0x69, 0xc8, 0x47, 0xf0, 0x34, 0x4c, 0x9f, 0x58, 0x2f, 0x12, 0x25, 0x77, 0x40, 0x8a, 0x93, 0x64,
-	0xb1, 0x79, 0x0d, 0x52, 0xd7, 0xb7, 0x9d, 0xaf, 0xa3, 0xf8, 0x19, 0x6c, 0xc7, 0x8a, 0x32, 0xcd,
-	0xbf, 0x82, 0x22, 0x27, 0x52, 0x16, 0x5a, 0xc6, 0x3e, 0x85, 0xb2, 0x47, 0xab, 0xb5, 0xd6, 0x9f,
-	0x2d, 0xd7, 0xac, 0xaa, 0x95, 0x71, 0x5c, 0x2d, 0x57, 0x4b, 0x5e, 0x5c, 0x85, 0xdf, 0x81, 0x4c,
-	0x40, 0x9f, 0xd6, 0xb7, 0xf0, 0x08, 0x95, 0x12, 0xe5, 0x8f, 0x61, 0xff, 0x9c, 0xf8, 0x8b, 0xe6,
-	0x8d, 0x87, 0xfe, 0x6a, 0x0e, 0xfe, 0x49, 0x80, 0xf7, 0x12, 0x34, 0xb0, 0x6b, 0xdb, 0x83, 0x3c,
-	0x6f, 0x5f, 0x53, 0x25, 0xc0, 0x49, 0x4d, 0x03, 0x3d, 0x87, 0x82, 0x69, 0xf9, 0xc4, 0xb5, 0xf4,
-	0xa1, 0x36, 0x35, 0x57, 0x50, 0x37, 0x39, 0x95, 0x06, 0xe6, 0x7d, 0xc8, 0x86, 0xbb, 0x3c, 0x73,
-	0xa6, 0x99, 0x36, 0x13, 0x3e, 0x95, 0xf1, 0xc8, 0xc7, 0x50, 0xa5, 0x09, 0x78, 0x43, 0x38, 0x1b,
-	0xf7, 0xe9, 0x21, 0x83, 0xe4, 0xbf, 0x09, 0x50, 0xeb, 0xf0, 0x0e, 0xdb, 0xf5, 0x89, 0x33, 0x93,
-	0xca, 0xe8, 0x12, 0xf2, 0x77, 0xf7, 0x0e, 0x71, 0x1d, 0xdd, 0xd5, 0x47, 0x5e, 0x4d, 0x08, 0x6d,
-	0x79, 0x81, 0x97, 0xf1, 0xe3, 0x8b, 0x29, 0xb3, 0x62, 0xf9, 0xee, 0xbd, 0x3a, 0x2b, 0x2e, 0x9d,
-	0x81, 0x18, 0x65, 0x40, 0x22, 0xac, 0x7d, 0x41, 0xee, 0x99, 0x5d, 0xc1, 0x67, 0x72, 0x9f, 0x3a,
-	0x4e, 0x1f, 0x09, 0x72, 0x03, 0xa4, 0xee, 0xf8, 0x86, 0xfb, 0x10, 0xb5, 0xf9, 0xdb, 0x90, 0xf1,
-	0x7c, 0xe2, 0x70, 0x6b, 0x45, 0x1c, 0x61, 0x50, 0xe9, 0xb6, 0xfc, 0x07, 0x01, 0xb6, 0xa2, 0xb2,
-	0xaf, 0x21, 0x37, 0x41, 0x1b, 0x33, 0x9d, 0x35, 0xde, 0xdb, 0x8b, 0x94, 0x3a, 0xe5, 0x46, 0xaf,
-	0x61, 0x83, 0x5b, 0xc4, 0x2c, 0xdf, 0xc6, 0xcb, 0xad, 0xbc, 0x48, 0xa9, 0x13, 0xf6, 0x4f, 0xb2,
-	0xb0, 0x1e, 0x98, 0x24, 0xfb, 0x50, 0x5b, 0xbc, 0x46, 0x96, 0x58, 0x87, 0x33, 0xea, 0x85, 0xa4,
-	0xe2, 0xc3, 0xb9, 0xa6, 0x71, 0x48, 0x27, 0xc7, 0xe1, 0x4b, 0x01, 0xde, 0x0d, 0xb6, 0x3a, 0xae,
-	0x7d, 0xeb, 0x12, 0xcf, 0x43, 0xcf, 0x61, 0xc3, 0x61, 0xdf, 0x0c, 0x2c, 0xe5, 0x30, 0xdf, 0x54,
-	0x27, 0x5b, 0x41, 0x37, 0x1d, 0xe8, 0xe6, 0x70, 0xcc, 0x52, 0x38, 0xa7, 0xf2, 0x25, 0x3a, 0x0c,
-	0x4e, 0xd6, 0x5d, 0x3f, 0xec, 0xb2, 0xf9, 0xba, 0x84, 0x29, 0xe4, 0xc3, 0x1c, 0xf2, 0xe1, 0x1e,
-	0x87, 0x7c, 0x2a, 0x65, 0x44, 0xef, 0xc3, 0x1a, 0xb1, 0x8c, 0x10, 0x2e, 0x25, 0xf3, 0x07, 0x6c,
-	0xe8, 0x5b, 0xdc, 0xb3, 0x4c, 0xe8, 0xd9, 0x26, 0x9e, 0x35, 0x9f, 0xbb, 0xd5, 0x85, 0xad, 0x49,
-	0x10, 0xc7, 0xd6, 0x95, 0x47, 0x5c, 0x54, 0x80, 0xf4, 0xe4, 0x17, 0x48, 0x9b, 0x46, 0xe0, 0x41,
-	0xff, 0xce, 0xb6, 0x3d, 0x42, 0xc1, 0xcb, 0x86, 0xca, 0x97, 0xa8, 0x02, 0x59, 0x97, 0xe8, 0xde,
-	0x04, 0x28, 0xb0, 0x95, 0xfc, 0x9b, 0x34, 0x85, 0x97, 0x8f, 0xfe, 0xcd, 0x66, 0x5a, 0x41, 0x3a,
-	0xae, 0x15, 0xa0, 0x4f, 0xa1, 0xe8, 0x4c, 0xa1, 0x9b, 0x46, 0x31, 0x1b, 0xff, 0xfb, 0x13, 0xd0,
-	0x1d, 0x72, 0xa2, 0x24, 0x2f, 0xb8, 0xf9, 0x00, 0xf4, 0x50, 0xfc, 0x12, 0xdc, 0x7c, 0x24, 0x10,
-	0x2a, 0xdd, 0x46, 0x3f, 0x84, 0xcd, 0xf9, 0xaa, 0x9b, 0x49, 0xaa, 0xba, 0xf3, 0xbc, 0xf2, 0x2b,
-	0x28, 0x47, 0x22, 0x31, 0x05, 0x12, 0x2e, 0x8d, 0xca, 0x4c, 0x17, 0x65, 0x94, 0xa6, 0x21, 0x7f,
-	0x0c, 0xbb, 0x41, 0x19, 0x8d, 0x88, 0xce, 0x96, 0xe1, 0x07, 0x14, 0x7c, 0x25, 0xc0, 0xde, 0x52,
-	0x0d, 0xcc, 0x86, 0xff, 0xf9, 0x14, 0xde, 0x9d, 0xd4, 0xf7, 0x0c, 0x4b, 0x87, 0xf9, 0x8a, 0xfe,
-	0x2f, 0x01, 0xd0, 0x99, 0xe9, 0xff, 0xc7, 0xd3, 0xec, 0x39, 0x14, 0xc8, 0x2f, 0x1d, 0xdb, 0x23,
-	0x9a, 0x3d, 0xf6, 0x27, 0xc8, 0x24, 0xa7, 0x6e, 0x52, 0x6a, 0x9b, 0x12, 0xd1, 0x11, 0x20, 0xc6,
-	0x96, 0x0c, 0x87, 0x45, 0xca, 0x35, 0x45, 0xc3, 0xd3, 0xdc, 0xcb, 0x24, 0xe6, 0x9e, 0xfc, 0x7d,
-	0x28, 0xce, 0xf9, 0xb7, 0x5a, 0xf2, 0x7c, 0x04, 0x3b, 0xe7, 0xc4, 0x9f, 0x17, 0x7c, 0x44, 0xea,
-	0xfc, 0x7e, 0x0d, 0x9e, 0x2d, 0x91, 0xff, 0x7f, 0x49, 0x9c, 0x55, 0x6a, 0x1f, 0xfa, 0x29, 0x6c,
-	0xd1, 0x8b, 0x31, 0x26, 0xd7, 0x9c, 0x0d, 0xd9, 0xeb, 0x38, 0xd1, 0x7d, 0xac, 0x50, 0x29, 0x96,
-	0x06, 0xb4, 0x85, 0xb3, 0x84, 0xe1, 0x44, 0xa9, 0x09, 0xc5, 0x18, 0xb6, 0xaf, 0xd5, 0xc8, 0xbf,
-	0x12, 0xa0, 0xd2, 0x71, 0x6d, 0x63, 0xdc, 0x27, 0xdf, 0xdc, 0x4c, 0x3f, 0x82, 0xea, 0x82, 0x8f,
-	0xab, 0x65, 0xfb, 0x49, 0x88, 0x59, 0x17, 0x85, 0x1f, 0x91, 0xf1, 0x7f, 0x5c, 0x0b, 0x51, 0xeb,
-	0x32, 0x1d, 0xdf, 0xa8, 0xac, 0xd7, 0x96, 0x65, 0xfd, 0x2b, 0xfc, 0x60, 0x08, 0xfe, 0xdb, 0x99,
-	0x7f, 0x09, 0x65, 0x6e, 0x49, 0xa0, 0xd2, 0xf5, 0x57, 0xce, 0x7b, 0x04, 0xeb, 0xae, 0x6e, 0x7d,
-	0xc1, 0x86, 0x53, 0xe1, 0xb7, 0x5c, 0x83, 0x4a, 0x54, 0x1b, 0x7b, 0x77, 0xbd, 0x82, 0xf2, 0xa5,
-	0xe9, 0xf9, 0x13, 0x08, 0xeb, 0xad, 0x38, 0xa0, 0x68, 0x40, 0x25, 0x2a, 0xc7, 0x72, 0xe5, 0x45,
-	0xf0, 0x48, 0xe6, 0x54, 0x86, 0xb1, 0x61, 0x8a, 0x91, 0xd5, 0x99, 0xdd, 0x17, 0xbf, 0x16, 0x40,
-	0x8c, 0x8e, 0xd9, 0xd0, 0x1e, 0x6c, 0x2b, 0xd7, 0x27, 0x97, 0x57, 0x27, 0xbd, 0x66, 0xbb, 0xa5,
-	0xbd, 0x51, 0x7a, 0x17, 0xed, 0x86, 0x76, 0xd5, 0x6a, 0x28, 0x67, 0xcd, 0x96, 0xd2, 0x10, 0x53,
-	0x28, 0x0f, 0xef, 0x5c, 0xb4, 0x2f, 0x1b, 0xed, 0xab, 0x9e, 0x28, 0x20, 0x80, 0xec, 0x67, 0xda,
-	0x59, 0xfb, 0xb2, 0x21, 0xa6, 0xd1, 0x13, 0xd8, 0xbc, 0x54, 0x4e, 0xae, 0x15, 0xad, 0xdd, 0x52,
-	0xb4, 0x60, 0xdb, 0x40, 0x05, 0x80, 0x8e, 0xaa, 0x34, 0x9a, 0xa7, 0x81, 0x32, 0x91, 0x04, 0x2c,
-	0x3d, 0xf5, 0xa4, 0xd9, 0x6a, 0xb6, 0xce, 0xb5, 0xc6, 0x49, 0xef, 0x44, 0x1c, 0xbc, 0xb8, 0x86,
-	0x8d, 0x09, 0xb4, 0x2d, 0x81, 0xd8, 0x51, 0xdb, 0xe7, 0xaa, 0xd2, 0xed, 0x6a, 0x57, 0xad, 0xcf,
-	0x5a, 0xed, 0x1f, 0xb7, 0xe8, 0x81, 0x1d, 0xa5, 0xd5, 0x68, 0xb6, 0xce, 0x45, 0x21, 0x58, 0xa8,
-	0x57, 0xad, 0x40, 0x81, 0x98, 0x46, 0x9b, 0x90, 0x3b, 0x6d, 0xbf, 0xe9, 0x5c, 0x2a, 0x3d, 0xa5,
-	0x21, 0xae, 0x05, 0x7b, 0x8a, 0xaa, 0xb6, 0x55, 0xa5, 0x21, 0xae, 0xd7, 0xff, 0x01, 0xb0, 0x7e,
-	0x1a, 0xbc, 0xd5, 0x3e, 0x0a, 0xf0, 0xf3, 0x74, 0x58, 0x85, 0x4a, 0x38, 0x66, 0x90, 0x26, 0x95,
-	0x71, 0xdc, 0x44, 0x4b, 0x4e, 0xa1, 0x0f, 0x01, 0xa6, 0xb3, 0x20, 0x84, 0xf0, 0xc2, 0x30, 0x49,
-	0x2a, 0xe2, 0x98, 0x61, 0x51, 0x6a, 0x72, 0x2e, 0xc3, 0x86, 0xfc, 0xdc, 0xf9, 0x21, 0x09, 0x3f,
-	0x37, 0x3a, 0x06, 0x49, 0xa1, 0x1f, 0xc1, 0xe6, 0xdc, 0xac, 0x05, 0x95, 0x71, 0xdc, 0x84, 0x47,
-	0xaa, 0xe0, 0xf8, 0x91, 0x0c, 0xb7, 0x9c, 0x8b, 0x87, 0x96, 0x47, 0x64, 0x8b, 0x38, 0x66, 0x02,
-	0x93, 0x42, 0x67, 0xb0, 0x15, 0x79, 0x47, 0xa3, 0x2a, 0x8e, 0x9f, 0x3a, 0x48, 0x35, 0xbc, 0x6c,
-	0xa6, 0x90, 0x42, 0x03, 0x78, 0xba, 0xf4, 0x49, 0x8e, 0xde, 0xc3, 0x0f, 0x3d, 0xf8, 0x25, 0x19,
-	0x3f, 0xf8, 0xa2, 0x97, 0x53, 0x87, 0x02, 0x6a, 0xb3, 0x71, 0xdd, 0xbc, 0xc9, 0x12, 0x5e, 0x3a,
-	0x84, 0x91, 0xb6, 0x71, 0xc2, 0x98, 0x25, 0x85, 0x54, 0x28, 0xc6, 0x4c, 0x4b, 0xd0, 0x36, 0x5e,
-	0x3e, 0x7e, 0x91, 0x76, 0x70, 0xd2, 0x80, 0x25, 0x85, 0x9a, 0x20, 0x46, 0x5f, 0x8f, 0xa8, 0x86,
-	0x97, 0xcc, 0x05, 0xa4, 0xa7, 0x78, 0xd9, 0x53, 0x93, 0xa6, 0xc6, 0x1c, 0xbc, 0x46, 0xf4, 0x49,
-	0xb0, 0xa0, 0xa4, 0x82, 0x63, 0x9f, 0x00, 0x72, 0x0a, 0xfd, 0x0c, 0xaa, 0x4b, 0x30, 0x3a, 0xda,
-	0xc3, 0xc9, 0xf8, 0x5f, 0xda, 0xc7, 0x0f, 0xc0, 0xfb, 0xf0, 0x4e, 0x8e, 0x21, 0x3f, 0x03, 0x64,
-	0x50, 0x11, 0x2f, 0xc2, 0x65, 0xa9, 0x84, 0x63, 0x30, 0xa6, 0x9c, 0x42, 0x9f, 0x43, 0x39, 0x16,
-	0x07, 0xa1, 0x67, 0x38, 0x09, 0x5e, 0x4a, 0xbb, 0xc9, 0xf0, 0x29, 0xb4, 0xeb, 0x0c, 0xb6, 0x22,
-	0xad, 0x06, 0x55, 0x71, 0x3c, 0xc8, 0x91, 0x6a, 0x78, 0x09, 0x32, 0x98, 0xe4, 0x76, 0x7c, 0xd7,
-	0xa2, 0xb9, 0x9d, 0x08, 0x0c, 0x68, 0x6e, 0x27, 0x37, 0xbd, 0xd0, 0xde, 0x53, 0x28, 0xcc, 0xf7,
-	0x0e, 0x54, 0xc1, 0xb1, 0xad, 0x49, 0xaa, 0xe2, 0x25, 0x4d, 0x26, 0x15, 0x28, 0x99, 0x6f, 0x17,
-	0xa8, 0x82, 0x63, 0xfb, 0x8e, 0x54, 0xc5, 0xf1, 0x7d, 0x45, 0x4e, 0x1d, 0x37, 0x41, 0x0c, 0xfb,
-	0x7f, 0xdf, 0x1e, 0x6a, 0x7c, 0x30, 0xbf, 0xb3, 0x80, 0x0c, 0xce, 0xcc, 0x21, 0x69, 0x87, 0x03,
-	0x0c, 0xaf, 0xf6, 0xe5, 0x5f, 0xe8, 0xf3, 0x7c, 0x8b, 0xcb, 0x5d, 0x53, 0xb1, 0x4f, 0xa4, 0x3f,
-	0xff, 0x5d, 0x7a, 0xb7, 0x7e, 0xf8, 0xf2, 0x08, 0xbf, 0xc4, 0x1f, 0x6a, 0x8e, 0x4b, 0x3e, 0x9f,
-	0xcc, 0x45, 0x6e, 0xb2, 0x21, 0xf3, 0xf7, 0xfe, 0x1d, 0x00, 0x00, 0xff, 0xff, 0x66, 0xab, 0x85,
-	0x7c, 0xb7, 0x1a, 0x00, 0x00,
+	// 1838 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xdc, 0x58, 0x4f, 0x6f, 0xe3, 0xc6,
+	0x15, 0x17, 0x25, 0x4b, 0x6b, 0x3d, 0xc5, 0x36, 0x77, 0xfc, 0x47, 0x5c, 0xfa, 0x6f, 0x58, 0x6c,
+	0xe1, 0x2e, 0xd2, 0x89, 0x57, 0x2d, 0x52, 0xaf, 0x8b, 0x22, 0x55, 0x2c, 0xda, 0x56, 0xe2, 0x95,
+	0x84, 0x91, 0xec, 0x06, 0xc9, 0x81, 0xa5, 0xc5, 0x91, 0x4d, 0x44, 0x22, 0x59, 0x92, 0xda, 0xd6,
+	0xa7, 0x02, 0x3d, 0xf5, 0xd2, 0xf6, 0xd4, 0x43, 0xaf, 0x3d, 0xf4, 0xdc, 0x4b, 0x81, 0x7e, 0x90,
+	0x1c, 0x8b, 0x1e, 0xf2, 0x49, 0x0a, 0x72, 0x86, 0x12, 0x25, 0x91, 0xb4, 0x37, 0x28, 0x8a, 0x66,
+	0x6f, 0x9c, 0x37, 0x6f, 0x1e, 0xdf, 0x7b, 0xf3, 0xe6, 0x37, 0xbf, 0x37, 0x00, 0x7d, 0xdb, 0xa5,
+	0xd8, 0x71, 0x6d, 0xdf, 0x96, 0x0f, 0x6e, 0x6d, 0xfb, 0x76, 0x48, 0x3f, 0x0c, 0x47, 0x37, 0xe3,
+	0xc1, 0x87, 0x06, 0xf5, 0xfa, 0xae, 0xe9, 0xf8, 0xb6, 0xcb, 0x35, 0xf6, 0xe7, 0x35, 0x7c, 0x73,
+	0x44, 0x3d, 0x5f, 0x1f, 0x39, 0x5c, 0x61, 0xd5, 0x31, 0x1d, 0x3a, 0x34, 0xad, 0xc8, 0xe4, 0x9a,
+	0xe3, 0x9a, 0x23, 0xd3, 0x37, 0xdf, 0x44, 0x82, 0x15, 0xc7, 0xb5, 0x6f, 0x86, 0x74, 0xc4, 0x87,
+	0x95, 0x37, 0xfa, 0x70, 0xcc, 0xe7, 0x94, 0x7f, 0x09, 0xb0, 0xd1, 0xed, 0xdb, 0xae, 0x69, 0xdd,
+	0x9e, 0xda, 0xd6, 0xc0, 0xbc, 0x1d, 0xbb, 0xba, 0x6f, 0xda, 0x16, 0xfa, 0x01, 0x94, 0x46, 0xd4,
+	0xbf, 0xb3, 0x0d, 0x49, 0x38, 0x10, 0x0e, 0x57, 0x6b, 0x4f, 0xb1, 0x1a, 0xac, 0x0b, 0x27, 0x5f,
+	0x87, 0x13, 0x84, 0x2b, 0xa0, 0x0d, 0x28, 0x0e, 0xec, 0xa1, 0xe1, 0x49, 0xf9, 0x03, 0xe1, 0xb0,
+	0x48, 0xd8, 0x00, 0x1d, 0x82, 0xe8, 0xbb, 0xba, 0x69, 0x69, 0x3e, 0xf5, 0x7c, 0x2d, 0xb4, 0x2a,
+	0x15, 0x0e, 0x84, 0x43, 0x81, 0xac, 0x86, 0xf2, 0x1e, 0xf5, 0x7c, 0x12, 0x48, 0x91, 0x04, 0x4f,
+	0xbc, 0xbb, 0xf1, 0x60, 0x30, 0xa4, 0xd2, 0xd2, 0x81, 0x70, 0xb8, 0x4c, 0xa2, 0x21, 0xda, 0x87,
+	0x8a, 0xab, 0x5b, 0x86, 0x3d, 0xd2, 0x3c, 0x4a, 0x0d, 0xa9, 0x18, 0xda, 0x07, 0x26, 0xea, 0x52,
+	0x6a, 0xa0, 0x3d, 0x00, 0xcf, 0x0f, 0x6c, 0x0f, 0x4c, 0x6a, 0x48, 0xa5, 0x70, 0x75, 0x4c, 0xa2,
+	0x7c, 0x0e, 0xc5, 0x20, 0x3a, 0x8a, 0x5e, 0x86, 0xe1, 0xb8, 0x66, 0x3f, 0x0c, 0xa7, 0x52, 0x7b,
+	0x86, 0x3b, 0x2c, 0x29, 0x1d, 0xea, 0x0e, 0x6c, 0x77, 0xa4, 0x5b, 0x7d, 0xfa, 0x3a, 0x54, 0x20,
+	0x5c, 0x11, 0xed, 0x40, 0x31, 0xcc, 0x54, 0x18, 0x56, 0xa5, 0x56, 0xc2, 0xd7, 0xc1, 0x88, 0x30,
+	0xa1, 0x72, 0x03, 0x1b, 0x57, 0x8e, 0xa1, 0xfb, 0x94, 0xdb, 0x21, 0xf4, 0x57, 0x63, 0xea, 0xf9,
+	0x68, 0x1b, 0xca, 0x1e, 0xd5, 0xdd, 0xfe, 0x9d, 0x66, 0xb2, 0xd4, 0x95, 0xc9, 0x32, 0x13, 0x34,
+	0x0d, 0xf4, 0x43, 0x78, 0xc2, 0xf7, 0x82, 0x1b, 0x5d, 0x8f, 0xdc, 0x68, 0xf0, 0x6d, 0x37, 0x6d,
+	0x8b, 0x44, 0x3a, 0x4a, 0x15, 0x36, 0xe7, 0xfe, 0xe1, 0x39, 0xb6, 0xe5, 0x51, 0xe5, 0x8f, 0x79,
+	0xd8, 0xea, 0x86, 0x46, 0x3b, 0x7c, 0xef, 0xbd, 0xe8, 0xff, 0xbb, 0x00, 0x63, 0x8f, 0xba, 0x9a,
+	0x7e, 0x4b, 0x2d, 0x9f, 0x3b, 0x50, 0x0e, 0x24, 0xf5, 0x40, 0x10, 0xe4, 0xfa, 0x0d, 0x75, 0x3d,
+	0xd3, 0xb6, 0x42, 0x0f, 0xca, 0x24, 0x1a, 0xa2, 0x13, 0x58, 0xd7, 0x87, 0x43, 0xfb, 0xd7, 0xd4,
+	0xd0, 0xc2, 0x08, 0x35, 0xff, 0xde, 0xa1, 0x9e, 0x54, 0x38, 0x28, 0x1c, 0xae, 0xd6, 0x80, 0x05,
+	0xdf, 0xbb, 0x77, 0x28, 0x79, 0xca, 0xd5, 0x26, 0x12, 0x2f, 0x1e, 0xd7, 0xd2, 0xc3, 0x71, 0xa1,
+	0x23, 0x58, 0xf6, 0xe9, 0xc8, 0x19, 0xea, 0x3e, 0x0d, 0xf7, 0xb4, 0x52, 0xdb, 0xc0, 0x51, 0x20,
+	0xf1, 0x05, 0x13, 0x2d, 0xb4, 0x07, 0x25, 0xd3, 0x72, 0xc6, 0xbe, 0x27, 0x95, 0x0e, 0x0a, 0xb1,
+	0xcd, 0xe0, 0x52, 0xc5, 0x86, 0xea, 0x42, 0x3e, 0x58, 0xae, 0xb2, 0x37, 0x64, 0x36, 0x5b, 0xf9,
+	0x8c, 0x6c, 0x15, 0x66, 0xb2, 0xa5, 0x1c, 0xc3, 0x33, 0xd5, 0x32, 0x52, 0xf6, 0x20, 0xeb, 0x97,
+	0xca, 0x0e, 0xc8, 0x49, 0x2b, 0xf9, 0xce, 0xbe, 0x02, 0xb9, 0xeb, 0xdb, 0xce, 0xb7, 0x31, 0xbc,
+	0x0b, 0xdb, 0x89, 0x4b, 0xb9, 0xe5, 0xdf, 0xc2, 0x7a, 0x24, 0x64, 0x2a, 0xec, 0x60, 0x7c, 0x0a,
+	0x9b, 0x1e, 0x3b, 0xff, 0x5a, 0x3f, 0x0e, 0x00, 0xfc, 0x9c, 0x6c, 0xe2, 0x24, 0x74, 0x20, 0x1b,
+	0x5e, 0x12, 0x66, 0xec, 0x40, 0x31, 0x90, 0x4f, 0x4f, 0x4c, 0xf8, 0x0b, 0xc2, 0x84, 0xca, 0xc7,
+	0x70, 0x70, 0x4e, 0xfd, 0x45, 0xf7, 0xc6, 0x43, 0xff, 0x71, 0x01, 0xfe, 0x45, 0x80, 0xf7, 0x33,
+	0x2c, 0xf0, 0xfd, 0xde, 0x87, 0x4a, 0x04, 0x88, 0x53, 0x23, 0x10, 0x89, 0x9a, 0x06, 0x7a, 0x0e,
+	0xab, 0xa6, 0xe5, 0x53, 0xd7, 0xd2, 0x87, 0xda, 0xd4, 0x5d, 0x81, 0xac, 0x44, 0x52, 0x96, 0x98,
+	0x0f, 0xa0, 0x14, 0xce, 0xb2, 0x23, 0x10, 0x2f, 0xd1, 0x58, 0xfa, 0x08, 0xd7, 0x51, 0x4e, 0xa0,
+	0xca, 0x2a, 0xf7, 0x86, 0x46, 0x6a, 0x51, 0x4c, 0x0f, 0x39, 0xa4, 0xfc, 0x5d, 0x00, 0xa9, 0x13,
+	0x61, 0x76, 0xd7, 0xa7, 0x4e, 0xec, 0x0c, 0xa0, 0x4b, 0xa8, 0xdc, 0xdd, 0x3b, 0xd4, 0x75, 0x74,
+	0x57, 0x1f, 0x79, 0x92, 0x10, 0xfa, 0xf2, 0x02, 0xa7, 0xe9, 0xe3, 0x8b, 0xa9, 0xb2, 0x6a, 0xf9,
+	0xee, 0x3d, 0x89, 0x2f, 0x97, 0xcf, 0x40, 0x9c, 0x57, 0x40, 0x22, 0x14, 0xbe, 0xa2, 0xf7, 0xdc,
+	0xaf, 0xe0, 0x33, 0x1b, 0xf9, 0x4e, 0xf2, 0xc7, 0x82, 0xd2, 0x00, 0xb9, 0x3b, 0xbe, 0x89, 0x62,
+	0x98, 0xf7, 0xf9, 0xfb, 0x50, 0xf4, 0x7c, 0xea, 0x44, 0xde, 0x8a, 0x78, 0x4e, 0x81, 0xb0, 0x69,
+	0xe5, 0x4f, 0x02, 0xac, 0xcd, 0xaf, 0x7d, 0x05, 0xe5, 0xc9, 0xfd, 0x15, 0xc3, 0xea, 0xe4, 0x68,
+	0x2f, 0x72, 0x64, 0xaa, 0x8d, 0x5e, 0xc1, 0x72, 0xe4, 0x11, 0xf7, 0x7c, 0x1b, 0xa7, 0x7b, 0x79,
+	0x91, 0x23, 0x13, 0xf5, 0x4f, 0x4a, 0xb0, 0x14, 0xb8, 0xa4, 0xf8, 0x20, 0x2d, 0x6e, 0x23, 0x2f,
+	0xac, 0xa3, 0x98, 0x79, 0x21, 0x0b, 0xb5, 0x22, 0xad, 0x69, 0x1e, 0xf2, 0xd9, 0x79, 0xf8, 0x5a,
+	0x80, 0xf7, 0x82, 0xa9, 0x8e, 0x6b, 0xdf, 0xba, 0xd4, 0xf3, 0xd0, 0x73, 0x58, 0x76, 0xf8, 0x37,
+	0xbf, 0x7e, 0xcb, 0x38, 0x9a, 0x24, 0x93, 0xa9, 0x00, 0x9e, 0x06, 0xba, 0x39, 0x1c, 0xf3, 0x12,
+	0x2e, 0x93, 0x68, 0x88, 0x8e, 0x82, 0x3f, 0xeb, 0xae, 0x1f, 0xc2, 0x56, 0xa5, 0x26, 0x63, 0x46,
+	0x22, 0x70, 0x44, 0x22, 0x70, 0x2f, 0x22, 0x11, 0x84, 0x29, 0xa2, 0x0f, 0xa0, 0x40, 0x2d, 0x83,
+	0xc3, 0x77, 0x96, 0x7e, 0xa0, 0x86, 0xbe, 0x17, 0x45, 0x56, 0x0c, 0x23, 0x5b, 0xc1, 0x71, 0xf7,
+	0xa3, 0xb0, 0xba, 0xb0, 0x36, 0x49, 0xe2, 0xd8, 0xba, 0xf2, 0xa8, 0x8b, 0x56, 0x21, 0x3f, 0x39,
+	0x02, 0x79, 0xd3, 0x08, 0x22, 0xe8, 0xdf, 0xd9, 0xb6, 0x47, 0xd9, 0x75, 0xb4, 0x4c, 0xa2, 0x21,
+	0xda, 0x82, 0x92, 0x4b, 0x75, 0x6f, 0x82, 0xbc, 0x7c, 0xa4, 0xfc, 0x3e, 0xcf, 0x08, 0xcb, 0x5b,
+	0x1f, 0xb3, 0xd8, 0x1d, 0x92, 0x4f, 0xba, 0x43, 0xd0, 0xa7, 0xb0, 0xee, 0x4c, 0xc9, 0x80, 0xc6,
+	0x58, 0x40, 0x74, 0xfa, 0x33, 0xf8, 0x02, 0x72, 0xe6, 0x45, 0x5e, 0xb0, 0xf3, 0xc1, 0x2d, 0xe2,
+	0x49, 0x4b, 0x7c, 0xe7, 0xe7, 0x12, 0x41, 0xd8, 0x34, 0xfa, 0x29, 0xac, 0xcc, 0xa2, 0x6e, 0x31,
+	0x0b, 0x75, 0x67, 0x75, 0x95, 0x8f, 0x60, 0x73, 0x2e, 0x13, 0xbc, 0x52, 0x77, 0x01, 0x5c, 0x96,
+	0x95, 0x69, 0x26, 0xca, 0x5c, 0xd2, 0x34, 0x94, 0x8f, 0x61, 0x2f, 0x80, 0xd1, 0xb9, 0xa5, 0x71,
+	0x18, 0x7e, 0xc0, 0xc0, 0x37, 0x02, 0xec, 0xa7, 0x5a, 0xe0, 0x3e, 0xfc, 0xdf, 0x97, 0xf0, 0xde,
+	0x04, 0xdf, 0x8b, 0xbc, 0x1c, 0x66, 0x11, 0xfd, 0xdf, 0x02, 0xa0, 0x33, 0xd3, 0xff, 0xaf, 0x97,
+	0xd9, 0x73, 0x58, 0xa5, 0xbf, 0x71, 0x6c, 0x8f, 0x6a, 0xf6, 0xd8, 0x0f, 0xf5, 0x82, 0x0a, 0x2b,
+	0x93, 0x15, 0x26, 0x6d, 0x33, 0x21, 0x3a, 0x06, 0xc4, 0xd5, 0xe2, 0x6c, 0x6c, 0x69, 0x81, 0x8d,
+	0x89, 0x4c, 0x2b, 0x46, 0xc6, 0x26, 0xb5, 0x57, 0xcc, 0xac, 0x3d, 0xe5, 0xc7, 0xb0, 0x3e, 0x13,
+	0xdf, 0xe3, 0x8a, 0xe7, 0x67, 0xb0, 0x73, 0x4e, 0xfd, 0xd9, 0x85, 0x6f, 0x51, 0x3a, 0x7f, 0x28,
+	0xc0, 0x6e, 0xca, 0xfa, 0xef, 0x4a, 0xe1, 0x3c, 0x06, 0xfb, 0xd0, 0x97, 0xb0, 0xc6, 0x36, 0xc6,
+	0x98, 0x6c, 0x33, 0x63, 0xae, 0x35, 0x9c, 0x19, 0x3e, 0x56, 0xd9, 0x2a, 0x5e, 0x06, 0xec, 0x0a,
+	0xe7, 0x05, 0x13, 0x09, 0xe5, 0x26, 0xac, 0x27, 0xa8, 0x7d, 0xab, 0x8b, 0xfc, 0x1b, 0x01, 0xb6,
+	0x3a, 0xae, 0x6d, 0x8c, 0xfb, 0xf4, 0xdd, 0xad, 0xf4, 0x63, 0xa8, 0x2e, 0xc4, 0xf8, 0xb8, 0x6a,
+	0xaf, 0x87, 0x9c, 0x75, 0x71, 0xf1, 0x5b, 0x54, 0xfc, 0x9f, 0x0b, 0x21, 0x6b, 0x4d, 0xb3, 0xf1,
+	0x4e, 0x55, 0xbd, 0x96, 0x56, 0xf5, 0x1f, 0xe1, 0x07, 0x53, 0xf0, 0xbf, 0xae, 0xfc, 0x4b, 0xd8,
+	0x8c, 0x3c, 0x09, 0x4c, 0xba, 0xfe, 0xa3, 0xeb, 0x1e, 0xc1, 0x92, 0xab, 0x5b, 0x5f, 0xf1, 0xe7,
+	0x8e, 0xf0, 0x5b, 0x91, 0x60, 0x6b, 0xde, 0x1a, 0xef, 0xbb, 0xaa, 0xb0, 0x79, 0x69, 0x7a, 0xfe,
+	0x84, 0xc2, 0x46, 0x75, 0xa3, 0x34, 0x60, 0x6b, 0x7e, 0x82, 0x17, 0xc3, 0x0b, 0x80, 0x09, 0xab,
+	0x8d, 0x48, 0x34, 0x4c, 0x49, 0x30, 0x89, 0xcd, 0x2a, 0x7b, 0xb0, 0x13, 0x58, 0xa9, 0xcf, 0xf7,
+	0xe4, 0xd1, 0x5f, 0xbe, 0x84, 0xdd, 0x94, 0x79, 0xfe, 0xb3, 0x94, 0xbe, 0x5f, 0x78, 0x44, 0xdf,
+	0xff, 0xe2, 0x77, 0x02, 0x88, 0xf3, 0xcf, 0x42, 0x68, 0x1f, 0xb6, 0xd5, 0xeb, 0xfa, 0xe5, 0x55,
+	0xbd, 0xd7, 0x6c, 0xb7, 0xb4, 0xd7, 0x6a, 0xef, 0xa2, 0xdd, 0xd0, 0xae, 0x5a, 0x0d, 0xf5, 0xac,
+	0xd9, 0x52, 0x1b, 0x62, 0x0e, 0x55, 0xe0, 0xc9, 0x45, 0xfb, 0xb2, 0xd1, 0xbe, 0xea, 0x89, 0x02,
+	0x02, 0x28, 0x7d, 0xa6, 0x9d, 0xb5, 0x2f, 0x1b, 0x62, 0x1e, 0x3d, 0x85, 0x95, 0x4b, 0xb5, 0x7e,
+	0xad, 0x6a, 0xed, 0x96, 0xaa, 0x05, 0xd3, 0x06, 0x5a, 0x05, 0xe8, 0x10, 0xb5, 0xd1, 0x3c, 0x0d,
+	0x8c, 0x89, 0x34, 0x50, 0xe9, 0x91, 0x7a, 0xb3, 0xd5, 0x6c, 0x9d, 0x6b, 0x8d, 0x7a, 0xaf, 0x2e,
+	0x0e, 0x5e, 0x5c, 0xc3, 0xf2, 0x84, 0x38, 0x6f, 0x80, 0xd8, 0x21, 0xed, 0x73, 0xa2, 0x76, 0xbb,
+	0xda, 0x55, 0xeb, 0xb3, 0x56, 0xfb, 0x17, 0x2d, 0xf6, 0xc3, 0x8e, 0xda, 0x6a, 0x34, 0x5b, 0xe7,
+	0xa2, 0x10, 0x0c, 0xc8, 0x55, 0x2b, 0x30, 0x20, 0xe6, 0xd1, 0x0a, 0x94, 0x4f, 0xdb, 0xaf, 0x3b,
+	0x97, 0x6a, 0x4f, 0x6d, 0x88, 0x85, 0x60, 0x4e, 0x25, 0xa4, 0x4d, 0xd4, 0x86, 0xb8, 0x54, 0xfb,
+	0x67, 0x19, 0x96, 0x4e, 0x83, 0x4e, 0xf0, 0x0c, 0xd6, 0xe6, 0x7a, 0x4e, 0x54, 0xc5, 0xc9, 0x1d,
+	0xba, 0x2c, 0xe1, 0xb4, 0xfe, 0x3b, 0x87, 0x06, 0xf0, 0x2c, 0xb5, 0x7d, 0x45, 0xef, 0xe3, 0x87,
+	0x9a, 0x63, 0x59, 0xc1, 0x0f, 0x76, 0xbf, 0x4a, 0xee, 0x48, 0x40, 0x6d, 0x40, 0x8b, 0x2f, 0x0c,
+	0x48, 0xc6, 0xa9, 0x0f, 0x16, 0xf2, 0x36, 0xce, 0x78, 0x92, 0xc8, 0x21, 0x02, 0xeb, 0x09, 0x2f,
+	0x0b, 0x68, 0x1b, 0xa7, 0x3f, 0x55, 0xc8, 0x3b, 0x38, 0xeb, 0x31, 0x22, 0x87, 0x9a, 0x20, 0xce,
+	0x77, 0x5a, 0x48, 0xc2, 0x29, 0x3d, 0xb4, 0xfc, 0x0c, 0xa7, 0xb5, 0x65, 0x4a, 0x0e, 0xfd, 0x1c,
+	0x56, 0x66, 0xa8, 0x28, 0x62, 0xf4, 0x79, 0xc1, 0xc8, 0x16, 0x4e, 0xa4, 0xcb, 0x4a, 0x0e, 0xfd,
+	0x12, 0xaa, 0x29, 0x7c, 0x16, 0xed, 0xe3, 0x6c, 0xae, 0x2c, 0x1f, 0xe0, 0x07, 0xa8, 0x70, 0xb8,
+	0x27, 0x27, 0x50, 0x89, 0x5d, 0xfa, 0x68, 0x1d, 0x2f, 0x52, 0x4b, 0x79, 0x03, 0x27, 0xf0, 0x31,
+	0x25, 0x87, 0xbe, 0x80, 0xcd, 0x44, 0xce, 0x80, 0x76, 0x71, 0x16, 0x15, 0x93, 0xf7, 0xb2, 0xa9,
+	0x46, 0xe8, 0xd7, 0x19, 0xac, 0xcd, 0xc1, 0x32, 0xaa, 0xe2, 0x64, 0x42, 0x20, 0x4b, 0x38, 0xe5,
+	0x16, 0x9d, 0xd4, 0x76, 0x32, 0xc2, 0xb3, 0xda, 0xce, 0xbc, 0x44, 0x59, 0x6d, 0x67, 0x5f, 0x10,
+	0xa1, 0xbf, 0xa7, 0xb0, 0x3a, 0x8b, 0xb3, 0x68, 0x0b, 0x27, 0xc2, 0xb8, 0x5c, 0xc5, 0x29, 0x80,
+	0x1c, 0x16, 0xcc, 0xcc, 0xbb, 0x2a, 0xda, 0xc4, 0x49, 0x6f, 0xb9, 0xf2, 0x16, 0x4e, 0x7e, 0x7e,
+	0xcd, 0x05, 0x6e, 0xcc, 0x62, 0x37, 0xda, 0xc2, 0x89, 0x28, 0x2f, 0x57, 0x71, 0x32, 0xc8, 0x2b,
+	0x39, 0xf4, 0x39, 0xbb, 0x19, 0x16, 0xa0, 0x19, 0xed, 0xe2, 0x2c, 0x48, 0x97, 0xf7, 0x70, 0x26,
+	0xa2, 0x2b, 0xb9, 0x93, 0x26, 0x88, 0xe1, 0x3d, 0xde, 0xb7, 0x87, 0x5a, 0xf4, 0xbe, 0xbb, 0xb3,
+	0x70, 0xc3, 0x9f, 0x99, 0x43, 0xda, 0x0e, 0x1f, 0x22, 0x3c, 0xe9, 0xeb, 0xbf, 0xb1, 0x36, 0x7b,
+	0x2d, 0x5a, 0x77, 0xcd, 0x96, 0x7d, 0x22, 0xff, 0xf5, 0x1f, 0xf2, 0x7b, 0xb5, 0xa3, 0x97, 0xc7,
+	0xf8, 0x25, 0xfe, 0x89, 0xe6, 0xb8, 0xf4, 0x8b, 0xc9, 0xfb, 0xc6, 0x4d, 0x29, 0x54, 0xfe, 0xd1,
+	0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0x39, 0xeb, 0x20, 0xcf, 0xd1, 0x18, 0x00, 0x00,
 }

@@ -631,8 +631,10 @@ func _PipelineDescriptionStep_OneofSizer(msg proto.Message) (n int) {
 // They are marked with "TA2" or "TA3" in the comment, for fields to be set only by TA2 or only
 // by TA3, respectivelly.
 type PipelineDescription struct {
-	// TA2: UUID of the pipeline. Templates do not have IDs. Matches "pipeline_id" from
-	// "ListPipelinesResponse" and other related messages.
+	// TA2: UUID of the pipeline. Templates do not have IDs. It does not necessary have to
+	// match "pipeline_id" from "ListPipelinesResponse" and other related messages. Those
+	// IDs are about whole solutions (pipeline, potentially fitted, with set hyper-parameters).
+	// This here ID is about this particular ID description.
 	Id string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
 	// "schema" field is not needed because it is fixed by the TA2-TA3 protocol version.
 	// System which generated a pipeline or a template. Optional.

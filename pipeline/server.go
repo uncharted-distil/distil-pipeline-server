@@ -416,10 +416,7 @@ func (s *Server) ProducePipeline(ctx context.Context, req *ProducePipelineReques
 		return nil, handleError(codes.InvalidArgument, err)
 	}
 
-	// check to see if a fit has been performed on the associated pipeline by
-	// looping over siblings, finding those that are fit requests, and testing
-	// them for containment against the complete set
-
+	// check to see if a fit has been performed on the associated pipeline
 	fitComplete, err := s.checkPipelineFit(produceRequest.GetParent())
 	if err != nil {
 		return nil, handleError(codes.Internal, err)

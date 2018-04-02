@@ -8,6 +8,10 @@ import (
 	"github.com/satori/go.uuid"
 )
 
+const (
+	rootKey = "__ROOT_KEY__"
+)
+
 // RequestNode stores data for a hierarchical server API request.
 type RequestNode interface {
 	GetRequestID() string
@@ -52,12 +56,21 @@ type ServerRequests struct {
 
 // NewServerRequests creates a new instance of a server request manager
 func NewServerRequests() *ServerRequests {
-	return &ServerRequests{
+	server := &ServerRequests{
 		searches: []string{},
 		nodes:    map[string]*baseRequestNode{},
 		complete: set.New(),
 		lock:     new(sync.RWMutex),
 	}
+	rootNode := &baseRequestNode{
+		parent:     rootKey,
+		children:   []string{},
+		requestID:  rootKey,
+		requestMsg: nil,
+		lock:       server.lock,
+	}
+	server.nodes[rootNode.GetRequestID()] = rootNode
+	return server
 }
 
 // AddRequest adds a new server API request
@@ -95,6 +108,7 @@ func (s *ServerRequests) doRemove(requestID string) bool {
 	if !ok {
 		return false
 	}
+	delete(s.nodes, requestID)
 	for _, child := range node.children {
 		ok = s.doRemove(child)
 		if !ok {

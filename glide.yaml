@@ -13,3 +13,4 @@ import:
   subpackages:
   - context
 - package: google.golang.org/grpc
+- package: github.com/stretchr/testify

@@ -30,6 +30,24 @@ Build, watch, and run server:
 make watch
 ```
 
+## Syncing TA2-TA3 Submodule
+
+The `pipeline/ta3ta2-api` submodule is set up to track the D3M program level [TA2-TA3 API Repo](https://gitlab.com/datadrivendiscovery/ta3ta2-api).
+It is currently set up to track the `preprocessing_api2` branch where active development is taking place on the new version of the API. The branch
+being tracked can be adjusted by changing the `branch` field in the `.gitmodules` file, if necessary.
+
+Cloning of the contents of the submodule has been included in the `make install` command, but only for the latest commit that was commited to
+this repo to ensure nothing is broken upon installation. If you would like to update the submodule to track the newest commits on the branch:
+
+```bash
+make sync_api
+```
+
+If you would like to both sync the submodule with the latest commits AND generate new GRPC/Protobuf source:
+
+```bash
+make sync_and_gen
+```
 
 ## Generating GRPC/Protobuf Source
 
@@ -88,3 +106,39 @@ Run the container:
 
 - **Cause**: Dependencies are out of date or have not been installed
 - **Solution**: Run `make install` to install latest dependencies.
+
+## Message Flows for V2 TA3TA2 API
+
+This flow is equivalent to the the basic CreatePipelines request and result stream used in version one of the API.  For the purposes of illustration, we only deal with a single pipeline being generated.  It is now up to the TA3 system to manage data supplied to the scoring and prediction (produce) steps.
+
+```mermaid
+sequenceDiagram
+Note over TA3,TA2: Generate candidate pipelines
+    TA3->>TA2: SearchPipelines(SearchPipelinesRequest)
+    TA2-->>TA3: SearchPipelinesResponse
+    TA3->>TA2: GetSearchPipelinesResults(GetSearchPipelinesResultsRequest)
+    TA2--xTA3: GetSearchPipelineResultsResponse
+Note over TA3,TA2: Generate scores for candidate pipeline (assuming not generated during search)
+    TA3->>TA2: ScorePipeline(ScorePipelineRequest)
+    TA2-->>TA3: ScorePipelineRequestResponse
+    TA3->>TA2: GetScorePipelineResults(GetScorePipelinesResultRequest)
+    TA2--xTA3: GetScorePipelineResultsResponse
+    TA2--xTA3: GetScorePipelineResultsResponse
+    TA2--xTA3: GetScorePipelineResultsResponse
+Note over TA3,TA2: Final fit of model
+    TA3->>TA2: FitPipeline(ProducePipelineRequest)
+    TA2-->>TA3: FitPipelineResponse
+    TA3->>TA2: GetFitPipelineResults(GetProducePipelineResultsRequest)
+    TA2--xTA3: GetFitPipelineResultsResponse
+    TA2--xTA3: GetFitPipelineResultsResponse
+Note over TA3,TA2: Generate predictions using fitted model and held back test data
+    TA3->>TA2: ProducePipeline(ProducePipelineRequest)
+    TA2-->>TA3: ProducePipelineResponse
+    TA3->>TA2: GetProducePipelineResults(GetProducePipelineResultsRequest)
+    TA2--xTA3: GetProducePipelineResultsResponse
+    TA2--xTA3: GetProducePipelineResultsResponse
+    TA2--xTA3: GetProducePipelineResultsResponse
+    TA3->>TA2: EndSearchPipelines(EndSearchPipelinesRequest)
+    TA2-->>TA3: EndSearchPipelinesRequest
+```
+

@@ -50,7 +50,8 @@ func main() {
 		config.ResultDir,
 		config.SendDelay,
 		config.NumUpdates,
-		config.ErrPercent)
+		config.ErrPercent,
+		config.MaxPipelines)
 
 	pipeline.RegisterCoreServer(grpcServer, pipelineServer)
 	grpcServer.Serve(lis)

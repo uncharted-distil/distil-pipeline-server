@@ -1,0 +1,4 @@
+[submodule "pipeline/ta3ta2-api"]
+	path = pipeline/ta3ta2-api
+	url = git@gitlab.com:datadrivendiscovery/ta3ta2-api.git
+	branch = preprocessing_api2

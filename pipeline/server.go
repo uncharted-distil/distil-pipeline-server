@@ -3,9 +3,9 @@ package pipeline
 import (
 	"bytes"
 	"compress/gzip"
-	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"reflect"
 	// "path/filepath"
 	// "strconv"
 	// "strings"
@@ -14,12 +14,14 @@ import (
 
 	"golang.org/x/net/context"
 	// uuid generation
-	"github.com/satori/go.uuid"
+
+	"github.com/pkg/errors"
 	// data structures
-	"github.com/fatih/set"
+
 	// grpc and protobuf
 	"github.com/golang/protobuf/proto"
 	protobuf "github.com/golang/protobuf/protoc-gen-go/descriptor"
+	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -81,17 +83,14 @@ func getAPIVersion() string {
 
 // Server represents a basic distil pipeline server.
 type Server struct {
-	sessionIDs    *set.Set
-	endSessionIDs *set.Set
-	searchIDs     *set.Set
-	endSearchIDs  *set.Set
-	pipelineIDs   *set.Set
 	userAgent     string
 	resultDir     string
 	sendDelay     time.Duration
 	numUpdates    int
 	errPercentage float64
 	maxPipelines  int
+
+	sr *ServerRequests
 }
 
 // NewServer creates a new pipeline server instance.  ID maps are initialized with place holder values
@@ -99,43 +98,54 @@ type Server struct {
 func NewServer(userAgent string, resultDir string, sendDelay int,
 	numUpdates int, errPercentage float64, maxPipelines int) *Server {
 	server := new(Server)
-	server.sessionIDs = set.New("test-session-id")
-	server.endSessionIDs = set.New("test-end-session-id")
-	server.searchIDs = set.New()
-	server.endSearchIDs = set.New()
-	server.pipelineIDs = set.New("test-pipeline-id")
 	server.userAgent = userAgent
 	server.resultDir = resultDir
 	server.sendDelay = time.Duration(sendDelay) * time.Millisecond
 	server.numUpdates = numUpdates
 	server.errPercentage = errPercentage
 	server.maxPipelines = maxPipelines
+
+	server.sr = NewServerRequests()
+
 	return server
+}
+
+func handleError(code codes.Code, err error) error {
+	if err != nil {
+		log.Errorf("%v", err)
+		return status.Error(code, err.Error())
+	}
+	return nil
+}
+
+func handleTypeError(msg interface{}) error {
+	return status.Error(codes.Internal, errors.Errorf("unexpected msg type %s", reflect.TypeOf(msg)).Error())
 }
 
 // SearchPipelines generates a searchID and returns a SearchResponse immediately
 func (s *Server) SearchPipelines(ctx context.Context, req *SearchPipelinesRequest) (*SearchPipelinesResponse, error) {
 	log.Infof("Received SearchPipelines - %v", req)
 
-	// generate search_id
-	id := uuid.NewV1().String()
-	s.searchIDs.Add(id)
+	searchReq, err := s.sr.AddRequest("", req)
+	if err != nil {
+		return nil, handleError(codes.Internal, err)
+	}
 
 	// NOTE(jtorrez): could get fancy here and kick-off a goroutine that starts generating pipeline results
-	// but leaving that out of first pass dummy results implementation, should also be analyzing request to
-	// for problem, problem_id (if that is kept in the API), template, etc.
+	// but leaving that out of first pass dummy results implementation,
 
-	resp := &SearchPipelinesResponse{SearchId: id}
+	resp := &SearchPipelinesResponse{SearchId: searchReq.GetRequestID()}
 	return resp, nil
 }
 
 // GetSearchPipelinesResults returns a stream of pipeline results associated with a previously issued request
 func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest, stream Core_GetSearchPipelinesResultsServer) error {
 	log.Infof("Received GetSearchPipelinesResults - %v", req)
+
 	searchID := req.GetSearchId()
-	err := s.validateSearch(searchID)
+	_, err := s.sr.GetRequest(searchID)
 	if err != nil {
-		return err
+		return handleError(codes.InvalidArgument, err)
 	}
 
 	// randomly generate number of pipelines to "find"
@@ -159,11 +169,16 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 		go func() {
 			defer wg.Done()
 
-			pipelineID := uuid.NewV4().String()
-			// save the pipeline ID for subsequent calls
-			s.pipelineIDs.Add(pipelineID)
+			// Add a request node for the pipeline itself - it has no associated grpc request
+			// object since it is spawned from the search
+			pipelineReq, err := s.sr.AddRequest(req.GetSearchId(), nil)
+			if err != nil {
+				sendError = handleError(codes.Internal, err)
+				return
+			}
+
 			resp := &GetSearchPipelinesResultsResponse{
-				PipelineId: pipelineID,
+				PipelineId: pipelineReq.GetRequestID(),
 				// NOTE(jtorrez): according to comments in proto file, InternalScore field should be NaN
 				// if system doesn't have an internal score to provide. i.e., this optional
 				// field shouldn't ever be ommited, but it is not possible to set this
@@ -176,7 +191,11 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 			// wait a random amount of time within a limit before sending found pipeline
 			randomDelay := rand.Intn(int(s.sendDelay))
 			time.Sleep(time.Duration(randomDelay) * time.Millisecond)
-			err := stream.Send(resp)
+
+			// mark the request as a complete
+			s.sr.SetComplete(pipelineReq.GetRequestID())
+
+			err = stream.Send(resp)
 			if err != nil {
 				log.Error(err)
 				sendError = err
@@ -189,41 +208,40 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 	return sendError
 }
 
-func (s *Server) validateSearch(searchID string) error {
-	// If the search ID doesn't exist return an error
-	// the API doesn't include a way to commnicate that an ID doesn't exist so using
-	// the gRPC built in error codes
-	if !s.searchIDs.Has(searchID) {
-		return status.Errorf(codes.NotFound, "SearchID: %s doesn't exist", searchID)
-	}
-	if s.endSearchIDs.Has(searchID) {
-		// NOTE(jtorrez): not sure if this is appropriate error code, available gRPC codes
-		// don't explicilty communicate a ended session/search/other state
-		return status.Errorf(codes.ResourceExhausted, "SearchID: %s already ended, resources no longer available", searchID)
-	}
-	return nil
-}
-
 // EndSearchPipelines Releases resources associated with a previusly issued search request.
 // NOTE(cbethune): Does this require that a Stop request has been issued?
 func (s *Server) EndSearchPipelines(ctx context.Context, req *EndSearchPipelinesRequest) (*EndSearchPipelinesResponse, error) {
 	log.Infof("Received EndSearchPipelines - %v", req)
 	searchID := req.GetSearchId()
-	err := s.validateSearch(searchID)
+
+	_, err := s.sr.GetRequest(searchID)
 	if err != nil {
-		return nil, err
+		return nil, handleError(codes.InvalidArgument, err)
 	}
 
-	s.endSearchIDs.Add(searchID)
-	s.searchIDs.Remove(searchID)
+	err = s.sr.RemoveRequest(searchID)
+	if err != nil {
+		return nil, handleError(codes.Internal, err)
+	}
+
 	return &EndSearchPipelinesResponse{}, nil
 }
 
-// StopSearchPipelines Stops a running pipeline search request can be stopped.
+// StopSearchPipelines Stops a running pipeline search request.
 // NOTE(cbethune): Does this allow for a search to be restarted via a search request that uses the
 // same ID?
 func (s *Server) StopSearchPipelines(ctx context.Context, req *StopSearchPipelinesRequest) (*StopSearchPipelinesResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+	log.Infof("Received StopSearchPipelines - %v", req)
+	searchID := req.GetSearchId()
+	_, err := s.sr.GetRequest(searchID)
+	if err != nil {
+		return nil, handleError(codes.InvalidArgument, err)
+	}
+
+	// mark the request as complete - score, fit, produce and still execute
+	s.sr.SetComplete(searchID)
+
+	return &StopSearchPipelinesResponse{}, nil
 }
 
 // DescribePipeline generates a pipeline description struct for a given pipeline.
@@ -233,37 +251,301 @@ func (s *Server) DescribePipeline(ctx context.Context, req *DescribePipelineRequ
 
 // ScorePipeline generates a score for a given pipeline.
 func (s *Server) ScorePipeline(ctx context.Context, req *ScorePipelineRequest) (*ScorePipelineResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+	log.Infof("Received ScorePipeline - %v", req)
+
+	pipelineID := req.GetPipelineId()
+	scoreRequest, err := s.sr.AddRequest(pipelineID, req)
+	if err != nil {
+		return nil, handleError(codes.InvalidArgument, err)
+	}
+
+	response := &ScorePipelineResponse{scoreRequest.GetRequestID()}
+	return response, err
 }
 
 // GetScorePipelineResults returns a stream of pipeline score results for a previously issued  scoring request.
 func (s *Server) GetScorePipelineResults(req *GetScorePipelineResultsRequest, stream Core_GetScorePipelineResultsServer) error {
-	return status.Error(codes.Unimplemented, "Method unimplemented")
+	log.Infof("Received GetScorePipelineResults - %v", req)
+	scoreID := req.GetRequestId()
+
+	scoreRequest, err := s.sr.GetRequest(scoreID)
+	if err != nil {
+		return handleError(codes.InvalidArgument, err)
+	}
+
+	scoreMsg, ok := scoreRequest.GetRequestMsg().(*ScorePipelineRequest)
+	if !ok {
+		return handleTypeError(scoreRequest.GetRequestMsg())
+	}
+
+	// reflect the request scoring metric and give it some random data
+	metrics := scoreMsg.GetPerformanceMetrics()
+	scores := []*Score{}
+	for _, metric := range metrics {
+		scores = append(scores, &Score{
+			Metric: metric,
+			Value: &Value{
+				Value: &Value_Double{rand.Float64()},
+			},
+		})
+	}
+
+	// sleep for a bit
+	randomDelay := rand.Intn(int(s.sendDelay))
+	start := time.Now()
+	time.Sleep(time.Duration(randomDelay) * time.Millisecond)
+	end := time.Now()
+
+	// convert times to protobuf timestamp format
+	tsStart, err := ptypes.TimestampProto(start)
+	if err != nil {
+		return handleError(codes.Internal, err)
+	}
+	tsEnd, err := ptypes.TimestampProto(end)
+	if err != nil {
+		log.Error(err)
+		return handleError(codes.Internal, err)
+	}
+
+	// create response structure
+	scoreResult := &GetScorePipelineResultsResponse{
+		Progress: Progress_COMPLETED,
+		Start:    tsStart,
+		End:      tsEnd,
+		Scores:   scores,
+	}
+
+	// mark the request as complete
+	s.sr.SetComplete(scoreID)
+
+	// send response
+	err = stream.Send(scoreResult)
+	if err != nil {
+		return handleError(codes.Internal, err)
+	}
+	return nil
 }
 
 // FitPipeline fits a pipeline to training data.
 func (s *Server) FitPipeline(ctx context.Context, req *FitPipelineRequest) (*FitPipelineResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+	log.Infof("Received FitPipeline - %v", req)
+
+	pipelineID := req.GetPipelineId()
+	fitRequest, err := s.sr.AddRequest(pipelineID, req)
+	if err != nil {
+		return nil, handleError(codes.InvalidArgument, err)
+	}
+
+	// save the request ID and mark the fit as incomplete (produce can't execute on an incomplete fit)
+	response := &FitPipelineResponse{fitRequest.GetRequestID()}
+	return response, nil
 }
 
 // GetFitPipelineResults returns a stream of pipeline fit result for a previously issued fit request.
 func (s *Server) GetFitPipelineResults(req *GetFitPipelineResultsRequest, stream Core_GetFitPipelineResultsServer) error {
-	return status.Error(codes.Unimplemented, "Method unimplemented")
+	log.Infof("Received GetFitPipelineResults - %v", req)
+
+	fitID := req.GetRequestId()
+	_, err := s.sr.GetRequest(fitID)
+	if err != nil {
+		return handleError(codes.InvalidArgument, err)
+	}
+
+	// apply a random delay
+	randomDelay := rand.Intn(int(s.sendDelay))
+	start := time.Now()
+	time.Sleep(time.Duration(randomDelay) * time.Millisecond)
+	end := time.Now()
+
+	// mark the fit for the pipeline as complete
+	s.sr.SetComplete(fitID)
+
+	// convert times to protobuf timestamp format
+	tsStart, err := ptypes.TimestampProto(start)
+	if err != nil {
+		return handleError(codes.Internal, err)
+	}
+	tsEnd, err := ptypes.TimestampProto(end)
+	if err != nil {
+		return handleError(codes.Internal, err)
+	}
+
+	// create the response message
+	fitResult := &GetFitPipelineResultsResponse{
+		Progress: Progress_COMPLETED,
+		Start:    tsStart,
+		End:      tsEnd,
+	}
+
+	// send it back to the caller
+	err = stream.Send(fitResult)
+	if err != nil {
+		return handleError(codes.Internal, err)
+	}
+
+	return nil
 }
 
-// ProducePipeline executes a pipeline on supplied data.
+func (s *Server) checkPipelineFit(pipelineID string) (bool, error) {
+	fitComplete := false
+	node, err := s.sr.GetRequest(pipelineID)
+	if err != nil {
+		return false, handleError(codes.Internal, err)
+	}
+	for _, childID := range node.GetChildren() {
+		child, err := s.sr.GetRequest(childID)
+		if err != nil {
+			return false, handleError(codes.Internal, err)
+		}
+		_, ok := child.GetRequestMsg().(*FitPipelineRequest)
+		if ok && s.sr.IsComplete(child.GetRequestID()) {
+			fitComplete = true
+			break
+		}
+	}
+	return fitComplete, nil
+}
+
+// ProducePipeline executes a pipeline on supplied data.  Pipeline needs to have previously executed a fit.
 func (s *Server) ProducePipeline(ctx context.Context, req *ProducePipelineRequest) (*ProducePipelineResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+	log.Infof("Received ProducePipeline - %v", req)
+	pipelineID := req.GetPipelineId()
+
+	produceRequest, err := s.sr.AddRequest(pipelineID, req)
+	if err != nil {
+		return nil, handleError(codes.InvalidArgument, err)
+	}
+
+	// check to see if a fit has been performed on the associated pipeline
+	fitComplete, err := s.checkPipelineFit(produceRequest.GetParent())
+	if err != nil {
+		return nil, handleError(codes.Internal, err)
+	}
+	if !fitComplete {
+		return nil, handleError(codes.FailedPrecondition, errors.Errorf("no fit executed on pipeline %s", pipelineID))
+	}
+
+	response := &ProducePipelineResponse{produceRequest.GetRequestID()}
+	return response, nil
 }
 
 // GetProducePipelineResults returns a stream of pipeline results for a previously issued produce request.
 func (s *Server) GetProducePipelineResults(req *GetProducePipelineResultsRequest, stream Core_GetProducePipelineResultsServer) error {
-	return status.Error(codes.Unimplemented, "Method unimplemented")
+	log.Infof("Received GetFitPipelineResults - %v", req)
+	produceID := req.GetRequestId()
+
+	produceRequest, err := s.sr.GetRequest(produceID)
+	if err != nil {
+		return handleError(codes.Internal, err)
+	}
+
+	// apply a random delay
+	randomDelay := rand.Intn(int(s.sendDelay))
+	start := time.Now()
+	time.Sleep(time.Duration(randomDelay) * time.Millisecond)
+	end := time.Now()
+
+	// convert times to protobuf timestamp format
+	tsStart, err := ptypes.TimestampProto(start)
+	if err != nil {
+		handleError(codes.Internal, err)
+	}
+	tsEnd, err := ptypes.TimestampProto(end)
+	if err != nil {
+		handleError(codes.Internal, err)
+	}
+
+	produceRequestMsg, ok := produceRequest.GetRequestMsg().(*ProducePipelineRequest)
+	if !ok {
+		handleTypeError(produceRequest.GetRequestMsg())
+	}
+
+	// we only look at first output and expect it to be a dataset URI
+	inputs := produceRequestMsg.GetInputs()
+	if len(inputs) != 1 {
+		return handleError(codes.Internal, errors.Errorf("expecting single input found %d", len(inputs)))
+	}
+
+	// pull the dataset URI out of the produce request
+	datasetURIValue, ok := inputs[0].GetValue().(*Value_DatasetUri)
+	if !ok {
+		handleTypeError(inputs[0].GetValue())
+	}
+
+	// Get the problem from the search request.  Search request is retrieved
+	// by traversing ancestors and testing the saved message type
+	parentID := produceRequest.GetParent()
+	var problem *ProblemDescription
+	for parentID != "" {
+		parentRequest, err := s.sr.GetRequest(parentID)
+		if err != nil {
+			return handleError(codes.Internal, err)
+		}
+		searchRequestMsg, ok := parentRequest.GetRequestMsg().(*SearchPipelinesRequest)
+		if ok {
+			problem = searchRequestMsg.GetProblem()
+			break
+		}
+		parentID = parentRequest.GetParent()
+	}
+
+	taskType := problem.GetProblem().GetTaskType()
+	targetName := problem.GetInputs()[0].GetTargets()[0].GetColumnName()
+
+	// create mock result data
+	resultURI, err := createResults(produceRequestMsg.GetPipelineId(), datasetURIValue.DatasetUri, s.resultDir, targetName, taskType)
+	if err != nil {
+		return handleError(codes.Internal, errors.Errorf("Failed to generate result data for pipeline %s", produceRequestMsg.GetPipelineId()))
+	}
+	exposedOutputs := map[string]*Value{
+		"outputs.0": &Value{
+			Value: &Value_DatasetUri{
+				DatasetUri: resultURI,
+			},
+		},
+	}
+
+	// create a response emessage
+	produceResults := &GetProducePipelineResultsResponse{
+		Progress:       Progress_COMPLETED,
+		Start:          tsStart,
+		End:            tsEnd,
+		ExposedOutputs: exposedOutputs,
+	}
+
+	// send it back to the caller
+	err = stream.Send(produceResults)
+	if err != nil {
+		handleError(codes.Internal, err)
+	}
+	return nil
 }
 
 // PipelineExport exports a previously generated pipeline.  The pipeline needs to have had a fit step
 // executed on it to be valid for export.
 func (s *Server) PipelineExport(ctx context.Context, req *PipelineExportRequest) (*PipelineExportResponse, error) {
+	log.Infof("Received ExportPipeline - %v", req)
+
+	pipelineID := req.GetPipelineId()
+	_, err := s.sr.GetRequest(pipelineID)
+	if err != nil {
+		handleError(codes.InvalidArgument, err)
+	}
+	// only allow produce on a pipeline that has had a fit run against it
+	fitComplete, err := s.checkPipelineFit(pipelineID)
+	if err != nil {
+		handleError(codes.Internal, err)
+	}
+	if !fitComplete {
+		return nil, handleError(codes.FailedPrecondition, errors.Errorf("no fit executed on pipeline %s", pipelineID))
+	}
+
+	response := &PipelineExportResponse{}
+	return response, nil
+}
+
+// UpdateProblem updates the problem defintion associated with a search
+func (s *Server) UpdateProblem(ctx context.Context, req *UpdateProblemRequest) (*UpdateProblemResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
@@ -273,97 +555,10 @@ func (s *Server) ListPrimitives(ctx context.Context, req *ListPrimitivesRequest)
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
-// StartSession creates a new session.
-// TODO(jtorrez): implement this if it stays in MR, may not be in final API
-func (s *Server) StartSession(ctx context.Context, req *StartSessionRequest) (*StartSessionResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
-}
-
-// EndSession ends an existing session.
-// TODO(jtorrez): implement this if it stays in MR, may not be in final API
-func (s *Server) EndSession(ctx context.Context, req *EndSessionRequest) (*EndSessionResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
-}
-
-// StartProblem creates a new problem instance.
-// TODO(jtorrez): implement this if it stays in MR, may not be in final API
-func (s *Server) StartProblem(ctx context.Context, req *StartProblemRequest) (*StartProblemResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
-}
-
-// UpdateProblem updates an existing problem instance.
-func (s *Server) UpdateProblem(ctx context.Context, req *UpdateProblemRequest) (*UpdateProblemResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
-}
-
-// EndProblem marks a problem as no longer used so that associated resources can be cleaned up.
-// TODO(jtorrez): implement this if it stays in MR, may not be in final API
-func (s *Server) EndProblem(ctx context.Context, req *EndProblemRequest) (*EndProblemResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
-}
-
-func buildLookup(d3mIndexCol int, csvPath string, fieldName string) (map[string]string, error) {
-	// Load the data
-	data, err := loadDataCsv(csvPath)
-	if err != nil {
-		return nil, err
+// ListAllowedValueTypes returns a list of all value types supported by this TA2 system to the caller
+func (s *Server) ListAllowedValueTypes(ctx context.Context, req *ListAllowedValueTypesRequest) (*ListAllowedValueTypesResponse, error) {
+	response := &ListAllowedValueTypesResponse{
+		AllowedValueTypes: []ValueType{ValueType_DATASET_URI},
 	}
-
-	// Map the field name to an index.
-	var fieldIndex = -1
-	for i, field := range data[0] {
-		if fieldName == field {
-			fieldIndex = i
-		}
-	}
-
-	// Map the index to the target value.
-	lookup := make(map[string]string)
-	for _, row := range data[1:] {
-		lookup[row[d3mIndexCol]] = row[fieldIndex]
-	}
-
-	return lookup, nil
-}
-
-func getCategories(csvPath string, fieldName string) ([]string, error) {
-	// Load the data
-	data, err := loadDataCsv(csvPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Map the field name to an index.
-	var fieldIndex = -1
-	for i, field := range data[0] {
-		if fieldName == field {
-			fieldIndex = i
-		}
-	}
-
-	log.Infof("%v", data[0])
-
-	if fieldIndex < 0 {
-		log.Errorf("Could not find field %s in data", fieldName)
-		return nil, fmt.Errorf("Could not find field %s in data", fieldName)
-	}
-
-	// Get the distinct category values.
-	categories := make(map[string]bool)
-	for _, row := range data[1:] {
-		if !categories[row[fieldIndex]] {
-			categories[row[fieldIndex]] = true
-		}
-	}
-
-	// Extract the keys to return the possible categories.
-	i := 0
-	keys := make([]string, len(categories))
-	for k := range categories {
-		keys[i] = k
-		i++
-	}
-	log.Infof("Categories: %v", keys)
-
-	return keys, nil
+	return response, nil
 }

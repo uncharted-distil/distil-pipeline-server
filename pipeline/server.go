@@ -126,7 +126,7 @@ func handleTypeError(msg interface{}) error {
 func (s *Server) SearchPipelines(ctx context.Context, req *SearchPipelinesRequest) (*SearchPipelinesResponse, error) {
 	log.Infof("Received SearchPipelines - %v", req)
 
-	searchReq, err := s.sr.AddRequest("", req)
+	searchReq, err := s.sr.AddRequest(rootKey, req)
 	if err != nil {
 		return nil, handleError(codes.Internal, err)
 	}

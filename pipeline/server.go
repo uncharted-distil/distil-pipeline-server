@@ -149,15 +149,7 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 	}
 
 	// randomly generate number of pipelines to "find"
-	pipelinesFound := rand.Intn(s.maxPipelines)
-
-	// it is possible to find no pipelines, but for the sake of testing
-	// generate number of "found" pipelines until it is greater than 0
-	if pipelinesFound == 0 {
-		for pipelinesFound <= 0 {
-			pipelinesFound = rand.Intn(s.maxPipelines)
-		}
-	}
+	pipelinesFound := rand.Intn(s.maxPipelines) + 1
 
 	wg := sync.WaitGroup{}
 	wg.Add(pipelinesFound)
@@ -190,7 +182,8 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 			}
 			// wait a random amount of time within a limit before sending found pipeline
 			randomDelay := rand.Intn(int(s.sendDelay))
-			time.Sleep(time.Duration(randomDelay) * time.Millisecond)
+			sleepDuration := time.Duration(randomDelay)
+			time.Sleep(sleepDuration)
 
 			// mark the request as a complete
 			s.sr.SetComplete(pipelineReq.GetRequestID())
@@ -291,9 +284,10 @@ func (s *Server) GetScorePipelineResults(req *GetScorePipelineResultsRequest, st
 	}
 
 	// sleep for a bit
-	randomDelay := rand.Intn(int(s.sendDelay))
 	start := time.Now()
-	time.Sleep(time.Duration(randomDelay) * time.Millisecond)
+	randomDelay := rand.Intn(int(s.sendDelay))
+	sleepDuration := time.Duration(randomDelay)
+	time.Sleep(sleepDuration)
 	end := time.Now()
 
 	// convert times to protobuf timestamp format
@@ -352,9 +346,10 @@ func (s *Server) GetFitPipelineResults(req *GetFitPipelineResultsRequest, stream
 	}
 
 	// apply a random delay
-	randomDelay := rand.Intn(int(s.sendDelay))
 	start := time.Now()
-	time.Sleep(time.Duration(randomDelay) * time.Millisecond)
+	randomDelay := rand.Intn(int(s.sendDelay))
+	sleepDuration := time.Duration(randomDelay)
+	time.Sleep(sleepDuration)
 	end := time.Now()
 
 	// mark the fit for the pipeline as complete
@@ -422,7 +417,7 @@ func (s *Server) ProducePipeline(ctx context.Context, req *ProducePipelineReques
 		return nil, handleError(codes.Internal, err)
 	}
 	if !fitComplete {
-		return nil, handleError(codes.FailedPrecondition, errors.Errorf("no fit executed on pipeline %s", pipelineID))
+		return nil, handleError(codes.FailedPrecondition, errors.Errorf("no fit executed on pipeline `%s`", pipelineID))
 	}
 
 	response := &ProducePipelineResponse{produceRequest.GetRequestID()}
@@ -431,7 +426,7 @@ func (s *Server) ProducePipeline(ctx context.Context, req *ProducePipelineReques
 
 // GetProducePipelineResults returns a stream of pipeline results for a previously issued produce request.
 func (s *Server) GetProducePipelineResults(req *GetProducePipelineResultsRequest, stream Core_GetProducePipelineResultsServer) error {
-	log.Infof("Received GetFitPipelineResults - %v", req)
+	log.Infof("Received GetProducePipelineResults - %v", req)
 	produceID := req.GetRequestId()
 
 	produceRequest, err := s.sr.GetRequest(produceID)
@@ -440,9 +435,10 @@ func (s *Server) GetProducePipelineResults(req *GetProducePipelineResultsRequest
 	}
 
 	// apply a random delay
-	randomDelay := rand.Intn(int(s.sendDelay))
 	start := time.Now()
-	time.Sleep(time.Duration(randomDelay) * time.Millisecond)
+	randomDelay := rand.Intn(int(s.sendDelay))
+	sleepDuration := time.Duration(randomDelay)
+	time.Sleep(sleepDuration)
 	end := time.Now()
 
 	// convert times to protobuf timestamp format
@@ -463,7 +459,7 @@ func (s *Server) GetProducePipelineResults(req *GetProducePipelineResultsRequest
 	// we only look at first output and expect it to be a dataset URI
 	inputs := produceRequestMsg.GetInputs()
 	if len(inputs) != 1 {
-		return handleError(codes.Internal, errors.Errorf("expecting single input found %d", len(inputs)))
+		return handleError(codes.Internal, errors.Errorf("expecting single input in request, found %d", len(inputs)))
 	}
 
 	// pull the dataset URI out of the produce request
@@ -490,12 +486,23 @@ func (s *Server) GetProducePipelineResults(req *GetProducePipelineResultsRequest
 	}
 
 	taskType := problem.GetProblem().GetTaskType()
-	targetName := problem.GetInputs()[0].GetTargets()[0].GetColumnName()
+
+	problemInputs := problem.GetInputs()
+	if len(problemInputs) != 1 {
+		return handleError(codes.Internal, errors.Errorf("expecting single input in problem, found %d", len(problemInputs)))
+	}
+
+	problemTargets := problemInputs[0].GetTargets()
+	if len(problemInputs) != 1 {
+		return handleError(codes.Internal, errors.Errorf("expecting single target in problem, found %d", len(problemTargets)))
+	}
+
+	targetName := problemTargets[0].GetColumnName()
 
 	// create mock result data
 	resultURI, err := createResults(produceRequestMsg.GetPipelineId(), datasetURIValue.DatasetUri, s.resultDir, targetName, taskType)
 	if err != nil {
-		return handleError(codes.Internal, errors.Errorf("Failed to generate result data for pipeline %s", produceRequestMsg.GetPipelineId()))
+		return handleError(codes.Internal, errors.Errorf("Failed to generate result data for pipeline `%s`", produceRequestMsg.GetPipelineId()))
 	}
 	exposedOutputs := map[string]*Value{
 		"outputs.0": &Value{
@@ -537,7 +544,7 @@ func (s *Server) PipelineExport(ctx context.Context, req *PipelineExportRequest)
 		handleError(codes.Internal, err)
 	}
 	if !fitComplete {
-		return nil, handleError(codes.FailedPrecondition, errors.Errorf("no fit executed on pipeline %s", pipelineID))
+		return nil, handleError(codes.FailedPrecondition, errors.Errorf("no fit executed on pipeline `%s`", pipelineID))
 	}
 
 	response := &PipelineExportResponse{}

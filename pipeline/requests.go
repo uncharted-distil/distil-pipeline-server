@@ -79,7 +79,7 @@ func (s *ServerRequests) AddRequest(parentID string, requestMsg interface{}) (Re
 	defer s.lock.Unlock()
 	parentNode, ok := s.nodes[parentID]
 	if !ok {
-		return nil, errors.Errorf("parent node %s not found", parentID)
+		return nil, errors.Errorf("parent node `%s` not found", parentID)
 	}
 	requestNode := &baseRequestNode{
 		requestID:  uuid.NewV4().String(),
@@ -98,7 +98,7 @@ func (s *ServerRequests) RemoveRequest(requestID string) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if !s.doRemove(requestID) {
-		return errors.Errorf("failed to remove request %s or one of its descendants", requestID)
+		return errors.Errorf("failed to remove request `%s` or one of its descendants", requestID)
 	}
 	return nil
 }
@@ -124,7 +124,7 @@ func (s *ServerRequests) GetRequest(requestID string) (RequestNode, error) {
 	defer s.lock.RUnlock()
 	node, ok := s.nodes[requestID]
 	if !ok {
-		return nil, errors.Errorf("node %s not found", requestID)
+		return nil, errors.Errorf("node `%s` not found", requestID)
 	}
 	return node, nil
 }

@@ -19,7 +19,7 @@ func createResults(pipelineID string, datasetURI string, resultPath string, targ
 	schema, err := loadDataSchema(dataPath)
 	var resultDir string
 	if err != nil {
-		log.Warnf("Unable to read schema: %v - generating unconstrained random data", err)
+		log.Warnf("generating unconstrained random data - %v", err)
 		resultDir, err = generateDataNoSchema(pipelineID, resultPath, targetFeature, task)
 		if err != nil {
 			return "", err
@@ -102,9 +102,10 @@ func generateDataNoSchema(pipelineID string, resultPath string, targetFeature st
 	var generator func(int) string
 	if task == TaskType_CLASSIFICATION {
 		categories := []string{"alpha", "bravo", "charlie"}
+		numCategories := float64(len(categories))
 		generator = func(index int) string {
 			r := (rand.NormFloat64() + 1.0)
-			f := math.Min(math.Max(0.0, r), float64(len(categories)))
+			f := math.Min(math.Max(0.0, r), numCategories-1)
 			return categories[int(f)]
 		}
 	} else if task == TaskType_REGRESSION {

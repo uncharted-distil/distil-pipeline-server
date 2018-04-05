@@ -6,7 +6,11 @@ import (
 	"os"
 	"path"
 	"strconv"
+
+	"github.com/pkg/errors"
 )
+
+const defaultRecordCount = 100
 
 func loadDataCsv(dirName string) ([][]string, error) {
 	// load training data from the supplied directory
@@ -18,7 +22,7 @@ func loadDataCsv(dirName string) ([][]string, error) {
 
 	lines, err := csv.NewReader(f).ReadAll()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to load csv from `%s`", dirName)
 	}
 	return lines, nil
 }
@@ -60,19 +64,29 @@ func generateResultCsv(
 	targetFeature string,
 	resultGenerator func(int) string,
 ) (string, error) {
+	recordCount := defaultRecordCount
+	var records [][]string
+	var err error
 
-	// load training data - just use it to get count for now
-	records, err := loadDataCsv(dirName)
-	if err != nil {
-		return "", err
+	if dirName != "" && d3mIndexCol >= 0 {
+		// load training data - just use it to get count for now
+		records, err = loadDataCsv(dirName)
+		if err != nil {
+			return "", err
+		}
+		recordCount = len(records)
 	}
 
-	// generate mock results skipping header row
+	// generate mock results skipping header row - use d3m index from training data if its available
 	result := [][]string{{"d3mIndex", targetFeature}}
-	for i := 1; i < len(records); i++ {
-		d3mIndex := records[i][d3mIndexCol]
-		d3mIndexParsed, _ := strconv.Atoi(d3mIndex)
-		result = append(result, []string{d3mIndex, resultGenerator(d3mIndexParsed)})
+	for i := 1; i < recordCount; i++ {
+		var d3mIndex int
+		if records != nil {
+			d3mIndex, err = strconv.Atoi(records[i][d3mIndexCol])
+		} else {
+			d3mIndex = i
+		}
+		result = append(result, []string{strconv.Itoa(d3mIndex), resultGenerator(d3mIndex)})
 	}
 
 	// write results out to disk

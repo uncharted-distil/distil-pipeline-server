@@ -3,3 +3,4 @@ distil-pipeline-server
 results
 .vscode
 .DS_Store
+.history

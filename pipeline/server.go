@@ -570,7 +570,7 @@ func (s *Server) ListPrimitives(ctx context.Context, req *ListPrimitivesRequest)
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
-// ListAllowedValueTypes returns a list of all value types supported by this TA2 system to the caller
+// Hello returns information on what the server supports.
 func (s *Server) Hello(ctx context.Context, req *HelloRequest) (*HelloResponse, error) {
 	response := &HelloResponse{
 		AllowedValueTypes: []ValueType{ValueType_DATASET_URI},

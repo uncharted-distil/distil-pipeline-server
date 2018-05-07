@@ -45,13 +45,13 @@ func main() {
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
 
-	pipelineServer := pipeline.NewServer(
+	solutionServer := pipeline.NewServer(
 		userAgent,
 		config.ResultDir,
 		config.SendDelay,
 		config.NumUpdates,
 		config.ErrPercent,
-		config.MaxPipelines)
+		config.MaxSolutionss)
 
 	pipeline.RegisterCoreServer(grpcServer, pipelineServer)
 	grpcServer.Serve(lis)

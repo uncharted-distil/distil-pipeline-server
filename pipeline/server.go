@@ -81,29 +81,29 @@ func getAPIVersion() string {
 	return *ex.(*string)
 }
 
-// Server represents a basic distil pipeline server.
+// Server represents a basic distil solution server.
 type Server struct {
 	userAgent     string
 	resultDir     string
 	sendDelay     time.Duration
 	numUpdates    int
 	errPercentage float64
-	maxPipelines  int
+	maxSolutions  int
 
 	sr *ServerRequests
 }
 
-// NewServer creates a new pipeline server instance.  ID maps are initialized with place holder values
+// NewServer creates a new solution server instance.  ID maps are initialized with place holder values
 // to support tests without explicit calls to session management.
 func NewServer(userAgent string, resultDir string, sendDelay int,
-	numUpdates int, errPercentage float64, maxPipelines int) *Server {
+	numUpdates int, errPercentage float64, maxSolutions int) *Server {
 	server := new(Server)
 	server.userAgent = userAgent
 	server.resultDir = resultDir
 	server.sendDelay = time.Duration(sendDelay) * time.Millisecond
 	server.numUpdates = numUpdates
 	server.errPercentage = errPercentage
-	server.maxPipelines = maxPipelines
+	server.maxSolutions = maxSolutions
 
 	server.sr = NewServerRequests()
 
@@ -122,25 +122,25 @@ func handleTypeError(msg interface{}) error {
 	return status.Error(codes.Internal, errors.Errorf("unexpected msg type %s", reflect.TypeOf(msg)).Error())
 }
 
-// SearchPipelines generates a searchID and returns a SearchResponse immediately
-func (s *Server) SearchPipelines(ctx context.Context, req *SearchPipelinesRequest) (*SearchPipelinesResponse, error) {
-	log.Infof("Received SearchPipelines - %v", req)
+// SearchSolutions generates a searchID and returns a SearchResponse immediately
+func (s *Server) SearchSolutions(ctx context.Context, req *SearchSolutionsRequest) (*SearchSolutionsResponse, error) {
+	log.Infof("Received SearchSolutions - %v", req)
 
 	searchReq, err := s.sr.AddRequest(rootKey, req)
 	if err != nil {
 		return nil, handleError(codes.Internal, err)
 	}
 
-	// NOTE(jtorrez): could get fancy here and kick-off a goroutine that starts generating pipeline results
+	// NOTE(jtorrez): could get fancy here and kick-off a goroutine that starts generating solution results
 	// but leaving that out of first pass dummy results implementation,
 
-	resp := &SearchPipelinesResponse{SearchId: searchReq.GetRequestID()}
+	resp := &SearchSolutionsResponse{SearchId: searchReq.GetRequestID()}
 	return resp, nil
 }
 
-// GetSearchPipelinesResults returns a stream of pipeline results associated with a previously issued request
-func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest, stream Core_GetSearchPipelinesResultsServer) error {
-	log.Infof("Received GetSearchPipelinesResults - %v", req)
+// GetSearchSolutionsResults returns a stream of solution results associated with a previously issued request
+func (s *Server) GetSearchSolutionsResults(req *GetSearchSolutionsResultsRequest, stream Core_GetSearchSolutionsResultsServer) error {
+	log.Infof("Received GetSearchSolutionsResults - %v", req)
 
 	searchID := req.GetSearchId()
 	_, err := s.sr.GetRequest(searchID)
@@ -148,29 +148,29 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 		return handleError(codes.InvalidArgument, err)
 	}
 
-	// randomly generate number of pipelines to "find"
-	pipelinesFound := rand.Intn(s.maxPipelines) + 1
+	// randomly generate number of solutions to "find"
+	solutionsFound := rand.Intn(s.maxSolutions) + 1
 
 	wg := sync.WaitGroup{}
-	wg.Add(pipelinesFound)
+	wg.Add(solutionsFound)
 
 	// race condition is intentional - reporting last encountered error is sufficient
 	var sendError error
 
-	for i := 0; i < pipelinesFound; i++ {
+	for i := 0; i < solutionsFound; i++ {
 		go func() {
 			defer wg.Done()
 
-			// Add a request node for the pipeline itself - it has no associated grpc request
+			// Add a request node for the solution itself - it has no associated grpc request
 			// object since it is spawned from the search
-			pipelineReq, err := s.sr.AddRequest(req.GetSearchId(), nil)
+			solutionReq, err := s.sr.AddRequest(req.GetSearchId(), nil)
 			if err != nil {
 				sendError = handleError(codes.Internal, err)
 				return
 			}
 
-			resp := &GetSearchPipelinesResultsResponse{
-				PipelineId: pipelineReq.GetRequestID(),
+			resp := &GetSearchSolutionsResultsResponse{
+				SolutionId: solutionReq.GetRequestID(),
 				// NOTE(jtorrez): according to comments in proto file, InternalScore field should be NaN
 				// if system doesn't have an internal score to provide. i.e., this optional
 				// field shouldn't ever be ommited, but it is not possible to set this
@@ -180,13 +180,13 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 				// problem specific metrics like F1 score, etc.) until parsing the problem
 				// type functionality is added to this stub server
 			}
-			// wait a random amount of time within a limit before sending found pipeline
+			// wait a random amount of time within a limit before sending found solution
 			randomDelay := rand.Intn(int(s.sendDelay))
 			sleepDuration := time.Duration(randomDelay)
 			time.Sleep(sleepDuration)
 
 			// mark the request as a complete
-			s.sr.SetComplete(pipelineReq.GetRequestID())
+			s.sr.SetComplete(solutionReq.GetRequestID())
 
 			err = stream.Send(resp)
 			if err != nil {
@@ -201,10 +201,10 @@ func (s *Server) GetSearchPipelinesResults(req *GetSearchPipelinesResultsRequest
 	return sendError
 }
 
-// EndSearchPipelines Releases resources associated with a previusly issued search request.
+// EndSearchSolutions Releases resources associated with a previusly issued search request.
 // NOTE(cbethune): Does this require that a Stop request has been issued?
-func (s *Server) EndSearchPipelines(ctx context.Context, req *EndSearchPipelinesRequest) (*EndSearchPipelinesResponse, error) {
-	log.Infof("Received EndSearchPipelines - %v", req)
+func (s *Server) EndSearchSolutions(ctx context.Context, req *EndSearchSolutionsRequest) (*EndSearchSolutionsResponse, error) {
+	log.Infof("Received EndSearchSolutions - %v", req)
 	searchID := req.GetSearchId()
 
 	_, err := s.sr.GetRequest(searchID)
@@ -217,14 +217,14 @@ func (s *Server) EndSearchPipelines(ctx context.Context, req *EndSearchPipelines
 		return nil, handleError(codes.Internal, err)
 	}
 
-	return &EndSearchPipelinesResponse{}, nil
+	return &EndSearchSolutionsResponse{}, nil
 }
 
-// StopSearchPipelines Stops a running pipeline search request.
+// StopSearchSolutions Stops a running solution search request.
 // NOTE(cbethune): Does this allow for a search to be restarted via a search request that uses the
 // same ID?
-func (s *Server) StopSearchPipelines(ctx context.Context, req *StopSearchPipelinesRequest) (*StopSearchPipelinesResponse, error) {
-	log.Infof("Received StopSearchPipelines - %v", req)
+func (s *Server) StopSearchSolutions(ctx context.Context, req *StopSearchSolutionsRequest) (*StopSearchSolutionsResponse, error) {
+	log.Infof("Received StopSearchSolutions - %v", req)
 	searchID := req.GetSearchId()
 	_, err := s.sr.GetRequest(searchID)
 	if err != nil {
@@ -234,31 +234,31 @@ func (s *Server) StopSearchPipelines(ctx context.Context, req *StopSearchPipelin
 	// mark the request as complete - score, fit, produce and still execute
 	s.sr.SetComplete(searchID)
 
-	return &StopSearchPipelinesResponse{}, nil
+	return &StopSearchSolutionsResponse{}, nil
 }
 
-// DescribePipeline generates a pipeline description struct for a given pipeline.
-func (s *Server) DescribePipeline(ctx context.Context, req *DescribePipelineRequest) (*DescribePipelineResponse, error) {
+// DescribeSolution generates a solution description struct for a given solution.
+func (s *Server) DescribeSolution(ctx context.Context, req *DescribeSolutionRequest) (*DescribeSolutionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
-// ScorePipeline generates a score for a given pipeline.
-func (s *Server) ScorePipeline(ctx context.Context, req *ScorePipelineRequest) (*ScorePipelineResponse, error) {
-	log.Infof("Received ScorePipeline - %v", req)
+// ScoreSolution generates a score for a given solution.
+func (s *Server) ScoreSolution(ctx context.Context, req *ScoreSolutionRequest) (*ScoreSolutionResponse, error) {
+	log.Infof("Received ScoreSolution - %v", req)
 
-	pipelineID := req.GetPipelineId()
-	scoreRequest, err := s.sr.AddRequest(pipelineID, req)
+	solutionID := req.GetSolutionId()
+	scoreRequest, err := s.sr.AddRequest(solutionID, req)
 	if err != nil {
 		return nil, handleError(codes.InvalidArgument, err)
 	}
 
-	response := &ScorePipelineResponse{scoreRequest.GetRequestID()}
+	response := &ScoreSolutionResponse{RequestId: scoreRequest.GetRequestID()}
 	return response, err
 }
 
-// GetScorePipelineResults returns a stream of pipeline score results for a previously issued  scoring request.
-func (s *Server) GetScorePipelineResults(req *GetScorePipelineResultsRequest, stream Core_GetScorePipelineResultsServer) error {
-	log.Infof("Received GetScorePipelineResults - %v", req)
+// GetScoreSolutionResults returns a stream of solution score results for a previously issued  scoring request.
+func (s *Server) GetScoreSolutionResults(req *GetScoreSolutionResultsRequest, stream Core_GetScoreSolutionResultsServer) error {
+	log.Infof("Received GetScoreSolutionResults - %v", req)
 	scoreID := req.GetRequestId()
 
 	scoreRequest, err := s.sr.GetRequest(scoreID)
@@ -266,7 +266,7 @@ func (s *Server) GetScorePipelineResults(req *GetScorePipelineResultsRequest, st
 		return handleError(codes.InvalidArgument, err)
 	}
 
-	scoreMsg, ok := scoreRequest.GetRequestMsg().(*ScorePipelineRequest)
+	scoreMsg, ok := scoreRequest.GetRequestMsg().(*ScoreSolutionRequest)
 	if !ok {
 		return handleTypeError(scoreRequest.GetRequestMsg())
 	}
@@ -302,11 +302,13 @@ func (s *Server) GetScorePipelineResults(req *GetScorePipelineResultsRequest, st
 	}
 
 	// create response structure
-	scoreResult := &GetScorePipelineResultsResponse{
-		Progress: Progress_COMPLETED,
-		Start:    tsStart,
-		End:      tsEnd,
-		Scores:   scores,
+	scoreResult := &GetScoreSolutionResultsResponse{
+		Progress: &Progress{
+			State: ProgressState_COMPLETED,
+			Start: tsStart,
+			End:   tsEnd,
+		},
+		Scores: scores,
 	}
 
 	// mark the request as complete
@@ -320,24 +322,26 @@ func (s *Server) GetScorePipelineResults(req *GetScorePipelineResultsRequest, st
 	return nil
 }
 
-// FitPipeline fits a pipeline to training data.
-func (s *Server) FitPipeline(ctx context.Context, req *FitPipelineRequest) (*FitPipelineResponse, error) {
-	log.Infof("Received FitPipeline - %v", req)
+// FitSolution fits a solution to training data.
+func (s *Server) FitSolution(ctx context.Context, req *FitSolutionRequest) (*FitSolutionResponse, error) {
+	log.Infof("Received FitSolution - %v", req)
 
-	pipelineID := req.GetPipelineId()
-	fitRequest, err := s.sr.AddRequest(pipelineID, req)
+	solutionID := req.GetSolutionId()
+	fitRequest, err := s.sr.AddRequest(solutionID, req)
 	if err != nil {
 		return nil, handleError(codes.InvalidArgument, err)
 	}
 
 	// save the request ID and mark the fit as incomplete (produce can't execute on an incomplete fit)
-	response := &FitPipelineResponse{fitRequest.GetRequestID()}
+	response := &FitSolutionResponse{
+		RequestId: fitRequest.GetRequestID(),
+	}
 	return response, nil
 }
 
-// GetFitPipelineResults returns a stream of pipeline fit result for a previously issued fit request.
-func (s *Server) GetFitPipelineResults(req *GetFitPipelineResultsRequest, stream Core_GetFitPipelineResultsServer) error {
-	log.Infof("Received GetFitPipelineResults - %v", req)
+// GetFitSolutionResults returns a stream of solution fit result for a previously issued fit request.
+func (s *Server) GetFitSolutionResults(req *GetFitSolutionResultsRequest, stream Core_GetFitSolutionResultsServer) error {
+	log.Infof("Received GetFitSolutionResults - %v", req)
 
 	fitID := req.GetRequestId()
 	_, err := s.sr.GetRequest(fitID)
@@ -352,7 +356,7 @@ func (s *Server) GetFitPipelineResults(req *GetFitPipelineResultsRequest, stream
 	time.Sleep(sleepDuration)
 	end := time.Now()
 
-	// mark the fit for the pipeline as complete
+	// mark the fit for the solution as complete
 	s.sr.SetComplete(fitID)
 
 	// convert times to protobuf timestamp format
@@ -366,10 +370,12 @@ func (s *Server) GetFitPipelineResults(req *GetFitPipelineResultsRequest, stream
 	}
 
 	// create the response message
-	fitResult := &GetFitPipelineResultsResponse{
-		Progress: Progress_COMPLETED,
-		Start:    tsStart,
-		End:      tsEnd,
+	fitResult := &GetFitSolutionResultsResponse{
+		Progress: &Progress{
+			State: ProgressState_COMPLETED,
+			Start: tsStart,
+			End:   tsEnd,
+		},
 	}
 
 	// send it back to the caller
@@ -381,9 +387,9 @@ func (s *Server) GetFitPipelineResults(req *GetFitPipelineResultsRequest, stream
 	return nil
 }
 
-func (s *Server) checkPipelineFit(pipelineID string) (bool, error) {
+func (s *Server) checkSolutionFit(solutionID string) (bool, error) {
 	fitComplete := false
-	node, err := s.sr.GetRequest(pipelineID)
+	node, err := s.sr.GetRequest(solutionID)
 	if err != nil {
 		return false, handleError(codes.Internal, err)
 	}
@@ -392,7 +398,7 @@ func (s *Server) checkPipelineFit(pipelineID string) (bool, error) {
 		if err != nil {
 			return false, handleError(codes.Internal, err)
 		}
-		_, ok := child.GetRequestMsg().(*FitPipelineRequest)
+		_, ok := child.GetRequestMsg().(*FitSolutionRequest)
 		if ok && s.sr.IsComplete(child.GetRequestID()) {
 			fitComplete = true
 			break
@@ -401,32 +407,32 @@ func (s *Server) checkPipelineFit(pipelineID string) (bool, error) {
 	return fitComplete, nil
 }
 
-// ProducePipeline executes a pipeline on supplied data.  Pipeline needs to have previously executed a fit.
-func (s *Server) ProducePipeline(ctx context.Context, req *ProducePipelineRequest) (*ProducePipelineResponse, error) {
-	log.Infof("Received ProducePipeline - %v", req)
-	pipelineID := req.GetPipelineId()
+// ProduceSolution executes a solution on supplied data.  Solution needs to have previously executed a fit.
+func (s *Server) ProduceSolution(ctx context.Context, req *ProduceSolutionRequest) (*ProduceSolutionResponse, error) {
+	log.Infof("Received ProduceSolution - %v", req)
+	solutionID := req.GetSolutionId()
 
-	produceRequest, err := s.sr.AddRequest(pipelineID, req)
+	produceRequest, err := s.sr.AddRequest(solutionID, req)
 	if err != nil {
 		return nil, handleError(codes.InvalidArgument, err)
 	}
 
-	// check to see if a fit has been performed on the associated pipeline
-	fitComplete, err := s.checkPipelineFit(produceRequest.GetParent())
+	// check to see if a fit has been performed on the associated solution
+	fitComplete, err := s.checkSolutionFit(produceRequest.GetParent())
 	if err != nil {
 		return nil, handleError(codes.Internal, err)
 	}
 	if !fitComplete {
-		return nil, handleError(codes.FailedPrecondition, errors.Errorf("no fit executed on pipeline `%s`", pipelineID))
+		return nil, handleError(codes.FailedPrecondition, errors.Errorf("no fit executed on solution `%s`", solutionID))
 	}
 
-	response := &ProducePipelineResponse{produceRequest.GetRequestID()}
+	response := &ProduceSolutionResponse{RequestId: produceRequest.GetRequestID()}
 	return response, nil
 }
 
-// GetProducePipelineResults returns a stream of pipeline results for a previously issued produce request.
-func (s *Server) GetProducePipelineResults(req *GetProducePipelineResultsRequest, stream Core_GetProducePipelineResultsServer) error {
-	log.Infof("Received GetProducePipelineResults - %v", req)
+// GetProduceSolutionResults returns a stream of solution results for a previously issued produce request.
+func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest, stream Core_GetProduceSolutionResultsServer) error {
+	log.Infof("Received GetProduceSolutionResults - %v", req)
 	produceID := req.GetRequestId()
 
 	produceRequest, err := s.sr.GetRequest(produceID)
@@ -451,7 +457,7 @@ func (s *Server) GetProducePipelineResults(req *GetProducePipelineResultsRequest
 		handleError(codes.Internal, err)
 	}
 
-	produceRequestMsg, ok := produceRequest.GetRequestMsg().(*ProducePipelineRequest)
+	produceRequestMsg, ok := produceRequest.GetRequestMsg().(*ProduceSolutionRequest)
 	if !ok {
 		handleTypeError(produceRequest.GetRequestMsg())
 	}
@@ -477,7 +483,7 @@ func (s *Server) GetProducePipelineResults(req *GetProducePipelineResultsRequest
 		if err != nil {
 			return handleError(codes.Internal, err)
 		}
-		searchRequestMsg, ok := parentRequest.GetRequestMsg().(*SearchPipelinesRequest)
+		searchRequestMsg, ok := parentRequest.GetRequestMsg().(*SearchSolutionsRequest)
 		if ok {
 			problem = searchRequestMsg.GetProblem()
 			break
@@ -500,12 +506,12 @@ func (s *Server) GetProducePipelineResults(req *GetProducePipelineResultsRequest
 	targetName := problemTargets[0].GetColumnName()
 
 	// create mock result data
-	resultURI, err := createResults(produceRequestMsg.GetPipelineId(), datasetURIValue.DatasetUri, s.resultDir, targetName, taskType)
+	resultURI, err := createResults(produceRequestMsg.GetSolutionId(), datasetURIValue.DatasetUri, s.resultDir, targetName, taskType)
 	if err != nil {
-		return handleError(codes.Internal, errors.Errorf("Failed to generate result data for pipeline `%s`", produceRequestMsg.GetPipelineId()))
+		return handleError(codes.Internal, errors.Errorf("Failed to generate result data for solution `%s`", produceRequestMsg.GetSolutionId()))
 	}
 	exposedOutputs := map[string]*Value{
-		"outputs.0": &Value{
+		"outputs.0": {
 			Value: &Value_DatasetUri{
 				DatasetUri: resultURI,
 			},
@@ -513,10 +519,12 @@ func (s *Server) GetProducePipelineResults(req *GetProducePipelineResultsRequest
 	}
 
 	// create a response emessage
-	produceResults := &GetProducePipelineResultsResponse{
-		Progress:       Progress_COMPLETED,
-		Start:          tsStart,
-		End:            tsEnd,
+	produceResults := &GetProduceSolutionResultsResponse{
+		Progress: &Progress{
+			State: ProgressState_COMPLETED,
+			Start: tsStart,
+			End:   tsEnd,
+		},
 		ExposedOutputs: exposedOutputs,
 	}
 
@@ -528,26 +536,26 @@ func (s *Server) GetProducePipelineResults(req *GetProducePipelineResultsRequest
 	return nil
 }
 
-// PipelineExport exports a previously generated pipeline.  The pipeline needs to have had a fit step
+// SolutionExport exports a previously generated solution.  The solution needs to have had a fit step
 // executed on it to be valid for export.
-func (s *Server) PipelineExport(ctx context.Context, req *PipelineExportRequest) (*PipelineExportResponse, error) {
-	log.Infof("Received ExportPipeline - %v", req)
+func (s *Server) SolutionExport(ctx context.Context, req *SolutionExportRequest) (*SolutionExportResponse, error) {
+	log.Infof("Received ExportSolution - %v", req)
 
-	pipelineID := req.GetPipelineId()
-	_, err := s.sr.GetRequest(pipelineID)
+	solutionID := req.GetSolutionId()
+	_, err := s.sr.GetRequest(solutionID)
 	if err != nil {
 		handleError(codes.InvalidArgument, err)
 	}
-	// only allow produce on a pipeline that has had a fit run against it
-	fitComplete, err := s.checkPipelineFit(pipelineID)
+	// only allow produce on a solution that has had a fit run against it
+	fitComplete, err := s.checkSolutionFit(solutionID)
 	if err != nil {
 		handleError(codes.Internal, err)
 	}
 	if !fitComplete {
-		return nil, handleError(codes.FailedPrecondition, errors.Errorf("no fit executed on pipeline `%s`", pipelineID))
+		return nil, handleError(codes.FailedPrecondition, errors.Errorf("no fit executed on solution `%s`", solutionID))
 	}
 
-	response := &PipelineExportResponse{}
+	response := &SolutionExportResponse{}
 	return response, nil
 }
 
@@ -556,15 +564,15 @@ func (s *Server) UpdateProblem(ctx context.Context, req *UpdateProblemRequest) (
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
-// ListPrimitives returns a list of TA1 primitives that TA3 is allowed to use in pre-processing pipeline
+// ListPrimitives returns a list of TA1 primitives that TA3 is allowed to use in pre-processing solution
 // specifications.
 func (s *Server) ListPrimitives(ctx context.Context, req *ListPrimitivesRequest) (*ListPrimitivesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
 // ListAllowedValueTypes returns a list of all value types supported by this TA2 system to the caller
-func (s *Server) ListAllowedValueTypes(ctx context.Context, req *ListAllowedValueTypesRequest) (*ListAllowedValueTypesResponse, error) {
-	response := &ListAllowedValueTypesResponse{
+func (s *Server) Hello(ctx context.Context, req *HelloRequest) (*HelloResponse, error) {
+	response := &HelloResponse{
 		AllowedValueTypes: []ValueType{ValueType_DATASET_URI},
 	}
 	return response, nil

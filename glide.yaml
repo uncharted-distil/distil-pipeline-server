@@ -3,6 +3,7 @@ import:
 - package: github.com/caarlos0/env
 - package: github.com/fatih/set
 - package: github.com/golang/protobuf
+  version: 1.1.0
   subpackages:
   - proto
   - protoc-gen-go/descriptor

@@ -12,7 +12,7 @@ import (
 	log "github.com/unchartedsoftware/plog"
 )
 
-func createResults(pipelineID string, datasetURI string, resultPath string, targetFeature string, task TaskType) (string, error) {
+func createResults(solutionID string, datasetURI string, resultPath string, targetFeature string, task TaskType) (string, error) {
 	// load the source data
 	dataPath := strings.Replace(datasetURI, "file://", "", 1)
 	dataPath = strings.Replace(dataPath, "datasetDoc.json", "", 1)
@@ -20,12 +20,12 @@ func createResults(pipelineID string, datasetURI string, resultPath string, targ
 	var resultDir string
 	if err != nil {
 		log.Warnf("generating unconstrained random data - %v", err)
-		resultDir, err = generateDataNoSchema(pipelineID, resultPath, targetFeature, task)
+		resultDir, err = generateDataNoSchema(solutionID, resultPath, targetFeature, task)
 		if err != nil {
 			return "", err
 		}
 	} else {
-		resultDir, err = generateDataFromSchema(schema, pipelineID, dataPath, resultPath, targetFeature, task)
+		resultDir, err = generateDataFromSchema(schema, solutionID, dataPath, resultPath, targetFeature, task)
 		if err != nil {
 			return "", err
 		}
@@ -39,7 +39,7 @@ func createResults(pipelineID string, datasetURI string, resultPath string, targ
 	return absResultDir, nil
 }
 
-func generateDataFromSchema(schema *DataSchema, pipelineID string, dataPath string, resultPath string, targetFeature string, task TaskType) (string, error) {
+func generateDataFromSchema(schema *DataSchema, solutionID string, dataPath string, resultPath string, targetFeature string, task TaskType) (string, error) {
 	d3mIndexCol := 0
 	for i, v := range schema.DataResources[0].Variables {
 		if v.ColName == "d3mIndex" {
@@ -89,7 +89,7 @@ func generateDataFromSchema(schema *DataSchema, pipelineID string, dataPath stri
 	}
 
 	// generate and persist mock result csv
-	resultDir, err := generateResultCsv(pipelineID, 0, dataPath, resultPath, d3mIndexCol, targetFeature, generator)
+	resultDir, err := generateResultCsv(solutionID, 0, dataPath, resultPath, d3mIndexCol, targetFeature, generator)
 	if err != nil {
 		return "", err
 	}
@@ -97,7 +97,7 @@ func generateDataFromSchema(schema *DataSchema, pipelineID string, dataPath stri
 	return resultDir, nil
 }
 
-func generateDataNoSchema(pipelineID string, resultPath string, targetFeature string, task TaskType) (string, error) {
+func generateDataNoSchema(solutionID string, resultPath string, targetFeature string, task TaskType) (string, error) {
 	// create stub data generators based on task
 	var generator func(int) string
 	if task == TaskType_CLASSIFICATION {
@@ -117,7 +117,7 @@ func generateDataNoSchema(pipelineID string, resultPath string, targetFeature st
 	}
 
 	// generate and persist mock result csv
-	resultDir, err := generateResultCsv(pipelineID, 0, "", resultPath, -1, targetFeature, generator)
+	resultDir, err := generateResultCsv(solutionID, 0, "", resultPath, -1, targetFeature, generator)
 	if err != nil {
 		return "", err
 	}

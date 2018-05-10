@@ -64,10 +64,10 @@ func TestSearch(t *testing.T) {
 	client, stop := setup()
 
 	t.Run("TestSearch", func(t *testing.T) {
-		request := &SearchPipelinesRequest{
+		request := &SearchSolutionsRequest{
 			AllowedValueTypes: []ValueType{ValueType_DATASET_URI},
 		}
-		_, err := client.SearchPipelines(context.Background(), request)
+		_, err := client.SearchSolutions(context.Background(), request)
 		stop <- true
 		assert.NoError(t, err)
 	})

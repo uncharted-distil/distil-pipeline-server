@@ -97,7 +97,7 @@ Run the container:
 
 ## Common Issues:
 
-#### "glide: command not found":
+#### "dep: command not found":
 
 - **Cause**: `$GOPATH/bin` has not been added to your `$PATH`.
 - **Solution**: Add `export PATH=$PATH:$GOPATH/bin` to your `.bash_profile` or `.bashrc`.

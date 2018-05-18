@@ -50,8 +50,8 @@ test: build
 
 install:
 	@go get -u github.com/golang/lint/golint
-	@go get -u github.com/Masterminds/glide
+	@go get -u github.com/golang/dep/cmd/dep
 	@go get -u github.com/unchartedsoftware/witch
 	@go get -u github.com/golang/protobuf/protoc-gen-go
-	@glide install
+	@dep ensure
 	@git submodule update --init --recursive

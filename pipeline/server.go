@@ -2,23 +2,16 @@ package pipeline
 
 import (
 	"bytes"
+	"fmt"
 	"compress/gzip"
 	"io/ioutil"
 	"math/rand"
 	"reflect"
-	// "path/filepath"
-	// "strconv"
-	// "strings"
 	"sync"
 	"time"
 
 	"golang.org/x/net/context"
-	// uuid generation
-
 	"github.com/pkg/errors"
-	// data structures
-
-	// grpc and protobuf
 	"github.com/golang/protobuf/proto"
 	protobuf "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/golang/protobuf/ptypes"
@@ -158,6 +151,12 @@ func (s *Server) GetSearchSolutionsResults(req *GetSearchSolutionsResultsRequest
 	var sendError error
 
 	for i := 0; i < solutionsFound; i++ {
+
+		// stagger solution responses
+		randomDelay := rand.Intn(int(s.sendDelay))
+		sleepDuration := s.sendDelay + time.Duration(randomDelay)
+		time.Sleep(sleepDuration)
+
 		go func() {
 			defer wg.Done()
 
@@ -182,7 +181,7 @@ func (s *Server) GetSearchSolutionsResults(req *GetSearchSolutionsResultsRequest
 			}
 			// wait a random amount of time within a limit before sending found solution
 			randomDelay := rand.Intn(int(s.sendDelay))
-			sleepDuration := time.Duration(randomDelay)
+			sleepDuration := s.sendDelay + time.Duration(randomDelay)
 			time.Sleep(sleepDuration)
 
 			// mark the request as a complete
@@ -286,7 +285,7 @@ func (s *Server) GetScoreSolutionResults(req *GetScoreSolutionResultsRequest, st
 	// sleep for a bit
 	start := time.Now()
 	randomDelay := rand.Intn(int(s.sendDelay))
-	sleepDuration := time.Duration(randomDelay)
+	sleepDuration := s.sendDelay + time.Duration(randomDelay)
 	time.Sleep(sleepDuration)
 	end := time.Now()
 
@@ -352,7 +351,7 @@ func (s *Server) GetFitSolutionResults(req *GetFitSolutionResultsRequest, stream
 	// apply a random delay
 	start := time.Now()
 	randomDelay := rand.Intn(int(s.sendDelay))
-	sleepDuration := time.Duration(randomDelay)
+	sleepDuration := s.sendDelay + time.Duration(randomDelay)
 	time.Sleep(sleepDuration)
 	end := time.Now()
 
@@ -435,6 +434,10 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 	log.Infof("Received GetProduceSolutionResults - %v", req)
 	produceID := req.GetRequestId()
 
+	if rand.Float64() < s.errPercentage {
+		return handleError(codes.InvalidArgument, fmt.Errorf("randomly generated error"))
+	}
+
 	produceRequest, err := s.sr.GetRequest(produceID)
 	if err != nil {
 		return handleError(codes.Internal, err)
@@ -443,7 +446,7 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 	// apply a random delay
 	start := time.Now()
 	randomDelay := rand.Intn(int(s.sendDelay))
-	sleepDuration := time.Duration(randomDelay)
+	sleepDuration := s.sendDelay + time.Duration(randomDelay)
 	time.Sleep(sleepDuration)
 	end := time.Now()
 

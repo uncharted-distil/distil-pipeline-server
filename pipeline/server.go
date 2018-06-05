@@ -373,6 +373,12 @@ func (s *Server) GetFitSolutionResults(req *GetFitSolutionResultsRequest, stream
 		return handleError(codes.Internal, err)
 	}
 
+	// add a node to hold the fitted request ID
+	fittedSolution, err := s.sr.AddRequest(fitID, nil)
+	if err != nil {
+		return handleError(codes.InvalidArgument, err)
+	}
+
 	// create the response message
 	fitResult := &GetFitSolutionResultsResponse{
 		Progress: &Progress{
@@ -380,6 +386,7 @@ func (s *Server) GetFitSolutionResults(req *GetFitSolutionResultsRequest, stream
 			Start: tsStart,
 			End:   tsEnd,
 		},
+		FittedSolutionId: fittedSolution.GetRequestID(),
 	}
 
 	// send it back to the caller
@@ -391,43 +398,13 @@ func (s *Server) GetFitSolutionResults(req *GetFitSolutionResultsRequest, stream
 	return nil
 }
 
-func (s *Server) checkSolutionFit(solutionID string) (bool, error) {
-	fitComplete := false
-	node, err := s.sr.GetRequest(solutionID)
-	if err != nil {
-		return false, handleError(codes.Internal, err)
-	}
-	for _, childID := range node.GetChildren() {
-		child, err := s.sr.GetRequest(childID)
-		if err != nil {
-			return false, handleError(codes.Internal, err)
-		}
-		_, ok := child.GetRequestMsg().(*FitSolutionRequest)
-		if ok && s.sr.IsComplete(child.GetRequestID()) {
-			fitComplete = true
-			break
-		}
-	}
-	return fitComplete, nil
-}
-
 // ProduceSolution executes a solution on supplied data.  Solution needs to have previously executed a fit.
 func (s *Server) ProduceSolution(ctx context.Context, req *ProduceSolutionRequest) (*ProduceSolutionResponse, error) {
 	log.Infof("Received ProduceSolution - %v", req)
-	solutionID := req.GetSolutionId()
 
-	produceRequest, err := s.sr.AddRequest(solutionID, req)
+	produceRequest, err := s.sr.AddRequest(req.GetFittedSolutionId(), req)
 	if err != nil {
 		return nil, handleError(codes.InvalidArgument, err)
-	}
-
-	// check to see if a fit has been performed on the associated solution
-	fitComplete, err := s.checkSolutionFit(produceRequest.GetParent())
-	if err != nil {
-		return nil, handleError(codes.Internal, err)
-	}
-	if !fitComplete {
-		return nil, handleError(codes.FailedPrecondition, errors.Errorf("no fit executed on solution `%s`", solutionID))
 	}
 
 	response := &ProduceSolutionResponse{RequestId: produceRequest.GetRequestID()}
@@ -506,9 +483,9 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 
 		// If Simon, return faked output.
 		if uuid == "d2fa8df2-6517-3c26-bafc-87b701c4043a" {
-			resultURI, err = createClassification(produceRequestMsg.GetSolutionId(), datasetURIValue.DatasetUri, s.resultDir)
+			resultURI, err = createClassification(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir)
 			if err != nil {
-				return handleError(codes.Internal, errors.Errorf("Failed to generate classification data for solution `%s`", produceRequestMsg.GetSolutionId()))
+				return handleError(codes.Internal, errors.Errorf("Failed to generate classification data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
 			}
 		} else {
 			return handleError(codes.Unimplemented, errors.Errorf("primitive UUID not supported"))
@@ -531,9 +508,9 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 		targetName := problemTargets[0].GetColumnName()
 
 		// create mock result data
-		resultURI, err = createResults(produceRequestMsg.GetSolutionId(), datasetURIValue.DatasetUri, s.resultDir, targetName, taskType)
+		resultURI, err = createResults(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir, targetName, taskType)
 		if err != nil {
-			return handleError(codes.Internal, errors.Errorf("Failed to generate result data for solution `%s`", produceRequestMsg.GetSolutionId()))
+			return handleError(codes.Internal, errors.Errorf("Failed to generate result data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
 		}
 	}
 
@@ -568,20 +545,11 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 func (s *Server) SolutionExport(ctx context.Context, req *SolutionExportRequest) (*SolutionExportResponse, error) {
 	log.Infof("Received ExportSolution - %v", req)
 
-	solutionID := req.GetSolutionId()
+	solutionID := req.GetFittedSolutionId()
 	_, err := s.sr.GetRequest(solutionID)
 	if err != nil {
 		handleError(codes.InvalidArgument, err)
 	}
-	// only allow produce on a solution that has had a fit run against it
-	fitComplete, err := s.checkSolutionFit(solutionID)
-	if err != nil {
-		handleError(codes.Internal, err)
-	}
-	if !fitComplete {
-		return nil, handleError(codes.FailedPrecondition, errors.Errorf("no fit executed on solution `%s`", solutionID))
-	}
-
 	response := &SolutionExportResponse{}
 	return response, nil
 }

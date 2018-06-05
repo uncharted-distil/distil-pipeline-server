@@ -45,6 +45,10 @@
   name = "google.golang.org/grpc"
   version = "1.11.3"
 
+[[constraint]]
+  name = "github.com/stretchr/testify"
+  version = "1.2.1"
+
 [prune]
   go-tests = true
   unused-packages = true

@@ -2,19 +2,19 @@ package pipeline
 
 import (
 	"bytes"
-	"fmt"
 	"compress/gzip"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"reflect"
 	"sync"
 	"time"
 
-	"golang.org/x/net/context"
-	"github.com/pkg/errors"
 	"github.com/golang/protobuf/proto"
 	protobuf "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/pkg/errors"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -113,6 +113,11 @@ func handleError(code codes.Code, err error) error {
 
 func handleTypeError(msg interface{}) error {
 	return status.Error(codes.Internal, errors.Errorf("unexpected msg type %s", reflect.TypeOf(msg)).Error())
+}
+
+func isPrimitiveRequest(request *SearchSolutionsRequest) bool {
+	steps := request.GetTemplate().GetSteps()
+	return steps[len(steps)-1].GetPlaceholder().GetInputs()[0].GetData() == "steps.1.produce"
 }
 
 // SearchSolutions generates a searchID and returns a SearchResponse immediately
@@ -480,39 +485,58 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 	// Get the problem from the search request.  Search request is retrieved
 	// by traversing ancestors and testing the saved message type
 	parentID := produceRequest.GetParent()
-	var problem *ProblemDescription
+	var searchRequestMsg *SearchSolutionsRequest
 	for parentID != "" {
 		parentRequest, err := s.sr.GetRequest(parentID)
 		if err != nil {
 			return handleError(codes.Internal, err)
 		}
-		searchRequestMsg, ok := parentRequest.GetRequestMsg().(*SearchSolutionsRequest)
+		searchRequestMsg, ok = parentRequest.GetRequestMsg().(*SearchSolutionsRequest)
+
 		if ok {
-			problem = searchRequestMsg.GetProblem()
 			break
 		}
 		parentID = parentRequest.GetParent()
 	}
 
-	taskType := problem.GetProblem().GetTaskType()
+	// Check if a primitive rather than a complete solution request is being run.
+	var resultURI string
+	if isPrimitiveRequest(searchRequestMsg) {
+		uuid := searchRequestMsg.GetTemplate().GetSteps()[0].GetPrimitive().GetPrimitive().GetId()
 
-	problemInputs := problem.GetInputs()
-	if len(problemInputs) != 1 {
-		return handleError(codes.Internal, errors.Errorf("expecting single input in problem, found %d", len(problemInputs)))
+		// If Simon, return faked output.
+		if uuid == "d2fa8df2-6517-3c26-bafc-87b701c4043a" {
+			resultURI, err = createClassification(produceRequestMsg.GetSolutionId(), datasetURIValue.DatasetUri, s.resultDir)
+			if err != nil {
+				return handleError(codes.Internal, errors.Errorf("Failed to generate classification data for solution `%s`", produceRequestMsg.GetSolutionId()))
+			}
+		} else {
+			return handleError(codes.Unimplemented, errors.Errorf("primitive UUID not supported"))
+		}
+	} else {
+		problem := searchRequestMsg.GetProblem()
+
+		taskType := problem.GetProblem().GetTaskType()
+
+		problemInputs := problem.GetInputs()
+		if len(problemInputs) != 1 {
+			return handleError(codes.Internal, errors.Errorf("expecting single input in problem, found %d", len(problemInputs)))
+		}
+
+		problemTargets := problemInputs[0].GetTargets()
+		if len(problemTargets) != 1 {
+			return handleError(codes.Internal, errors.Errorf("expecting single target in problem, found %d", len(problemTargets)))
+		}
+
+		targetName := problemTargets[0].GetColumnName()
+
+		// create mock result data
+		resultURI, err = createResults(produceRequestMsg.GetSolutionId(), datasetURIValue.DatasetUri, s.resultDir, targetName, taskType)
+		if err != nil {
+			return handleError(codes.Internal, errors.Errorf("Failed to generate result data for solution `%s`", produceRequestMsg.GetSolutionId()))
+		}
 	}
 
-	problemTargets := problemInputs[0].GetTargets()
-	if len(problemInputs) != 1 {
-		return handleError(codes.Internal, errors.Errorf("expecting single target in problem, found %d", len(problemTargets)))
-	}
-
-	targetName := problemTargets[0].GetColumnName()
-
-	// create mock result data
-	resultURI, err := createResults(produceRequestMsg.GetSolutionId(), datasetURIValue.DatasetUri, s.resultDir, targetName, taskType)
-	if err != nil {
-		return handleError(codes.Internal, errors.Errorf("Failed to generate result data for solution `%s`", produceRequestMsg.GetSolutionId()))
-	}
 	exposedOutputs := map[string]*Value{
 		"outputs.0": {
 			Value: &Value_DatasetUri{

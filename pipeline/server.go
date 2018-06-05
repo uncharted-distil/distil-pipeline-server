@@ -478,7 +478,9 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 
 	// Check if a primitive rather than a complete solution request is being run.
 	var resultURI string
+	log.Infof("Checking for primitive request")
 	if isPrimitiveRequest(searchRequestMsg) {
+		log.Infof("Processing primitive request")
 		uuid := searchRequestMsg.GetTemplate().GetSteps()[0].GetPrimitive().GetPrimitive().GetId()
 
 		// If Simon, return faked output.
@@ -491,6 +493,7 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 			return handleError(codes.Unimplemented, errors.Errorf("primitive UUID not supported"))
 		}
 	} else {
+		log.Infof("Processing solution request")
 		problem := searchRequestMsg.GetProblem()
 
 		taskType := problem.GetProblem().GetTaskType()

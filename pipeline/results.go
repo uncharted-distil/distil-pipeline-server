@@ -12,7 +12,7 @@ import (
 	log "github.com/unchartedsoftware/plog"
 )
 
-func createResults(solutionID string, datasetURI string, resultPath string, targetFeature string, task TaskType) (string, error) {
+func createResults(fittedSolutionID string, datasetURI string, resultPath string, targetFeature string, task TaskType) (string, error) {
 	// load the source data
 	dataPath := strings.Replace(datasetURI, "file://", "", 1)
 	dataPath = strings.Replace(dataPath, "datasetDoc.json", "", 1)
@@ -20,12 +20,12 @@ func createResults(solutionID string, datasetURI string, resultPath string, targ
 	var resultDir string
 	if err != nil {
 		log.Warnf("generating unconstrained random data - %v", err)
-		resultDir, err = generateDataNoSchema(solutionID, resultPath, targetFeature, task)
+		resultDir, err = generateDataNoSchema(fittedSolutionID, resultPath, targetFeature, task)
 		if err != nil {
 			return "", err
 		}
 	} else {
-		resultDir, err = generateDataFromSchema(schema, solutionID, dataPath, resultPath, targetFeature, task)
+		resultDir, err = generateDataFromSchema(schema, fittedSolutionID, dataPath, resultPath, targetFeature, task)
 		if err != nil {
 			return "", err
 		}
@@ -39,7 +39,7 @@ func createResults(solutionID string, datasetURI string, resultPath string, targ
 	return absResultDir, nil
 }
 
-func generateDataFromSchema(schema *DataSchema, solutionID string, dataPath string, resultPath string, targetFeature string, task TaskType) (string, error) {
+func generateDataFromSchema(schema *DataSchema, fittedSolutionID string, dataPath string, resultPath string, targetFeature string, task TaskType) (string, error) {
 	d3mIndexCol := 0
 	for i, v := range schema.DataResources[0].Variables {
 		if v.ColName == "d3mIndex" {
@@ -89,7 +89,7 @@ func generateDataFromSchema(schema *DataSchema, solutionID string, dataPath stri
 	}
 
 	// generate and persist mock result csv
-	resultDir, err := generateResultCsv(solutionID, 0, dataPath, resultPath, d3mIndexCol, targetFeature, generator)
+	resultDir, err := generateResultCsv(fittedSolutionID, 0, dataPath, resultPath, d3mIndexCol, targetFeature, generator)
 	if err != nil {
 		return "", err
 	}

@@ -115,9 +115,10 @@ func handleTypeError(msg interface{}) error {
 	return status.Error(codes.Internal, errors.Errorf("unexpected msg type %s", reflect.TypeOf(msg)).Error())
 }
 
-func isPrimitiveRequest(request *SearchSolutionsRequest) bool {
+func isExecutionRequest(request *SearchSolutionsRequest) bool {
 	steps := request.GetTemplate().GetSteps()
-	return steps[len(steps)-1].GetPlaceholder().GetInputs()[0].GetData() == "steps.1.produce"
+	step := steps[len(steps)-1]
+	return step.GetPlaceholder() == nil
 }
 
 // SearchSolutions generates a searchID and returns a SearchResponse immediately
@@ -479,15 +480,16 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 	// Check if a primitive rather than a complete solution request is being run.
 	var resultURI string
 	log.Infof("Checking for primitive request")
-	if isPrimitiveRequest(searchRequestMsg) {
+	if isExecutionRequest(searchRequestMsg) {
 		log.Infof("Processing primitive request")
-		uuid := searchRequestMsg.GetTemplate().GetSteps()[0].GetPrimitive().GetPrimitive().GetId()
+		steps := searchRequestMsg.GetTemplate().GetSteps()
+		uuid := steps[len(steps)-1].GetPrimitive().GetPrimitive().GetId()
 
 		// If Simon, return faked output.
 		if uuid == "d2fa8df2-6517-3c26-bafc-87b701c4043a" {
 			resultURI, err = createClassification(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir)
 			if err != nil {
-				return handleError(codes.Internal, errors.Errorf("Failed to generate classification data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
+				return handleError(codes.Internal, errors.Wrapf(err, "Failed to generate classification data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
 			}
 		} else {
 			return handleError(codes.Unimplemented, errors.Errorf("primitive UUID not supported"))

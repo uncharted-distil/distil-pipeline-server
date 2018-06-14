@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -23,7 +24,7 @@ func createClassification(solutionID string, datasetURI string, resultURI string
 		return "", err
 	}
 
-	if len(schema.DataResources) > 0 {
+	if len(schema.DataResources) != 1 {
 		return "", errors.Errorf("expected only 1 data resource but got %d", len(schema.DataResources))
 	}
 	// initialize csv writer
@@ -43,7 +44,12 @@ func createClassification(solutionID string, datasetURI string, resultURI string
 		}
 	}
 	resultDir := path.Join(resultURI, fmt.Sprintf("%s-%d", solutionID, 0))
-	outputDataPath := path.Join(resultDir, "tables", "learningData.csv")
+	outputDataDir := path.Join(resultDir, "tables")
+	if err := os.MkdirAll(outputDataDir, 0777); err != nil && !os.IsExist(err) {
+		return "", errors.Wrap(err, "unable to create classification output directory")
+	}
+
+	outputDataPath := path.Join(outputDataDir, "learningData.csv")
 	outputSchemaPath := path.Join(resultDir, "datasetDoc.json")
 
 	writer.Flush()

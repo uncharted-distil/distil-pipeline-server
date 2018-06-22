@@ -44,74 +44,22 @@ func createClassification(solutionID string, datasetURI string, resultURI string
 		}
 	}
 	resultDir := path.Join(resultURI, fmt.Sprintf("%s-%d", solutionID, 0))
-	outputDataDir := path.Join(resultDir, "tables")
-	if err := os.MkdirAll(outputDataDir, 0777); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(resultDir, 0777); err != nil && !os.IsExist(err) {
 		return "", errors.Wrap(err, "unable to create classification output directory")
 	}
 
-	outputDataPath := path.Join(outputDataDir, "learningData.csv")
-	outputSchemaPath := path.Join(resultDir, "datasetDoc.json")
+	resultPath := path.Join(resultDir, "results.csv")
 
 	writer.Flush()
-	err = ioutil.WriteFile(outputDataPath, output.Bytes(), 0644)
+	err = ioutil.WriteFile(resultPath, output.Bytes(), 0644)
 	if err != nil {
 		return "", errors.Wrap(err, "error writing classification output")
 	}
 
-	schemaOutput := `{
-  "about": {
-    "datasetID": "%s_classification",
-    "datasetName": "NULL",
-    "datasetSchemaVersion": "3.0"
-  },
-  "dataResources": [
-    {
-      "resID": "0",
-      "resPath": "tables/learningData.csv",
-      "resType": "table",
-      "resFormat": [
-        "text/csv"
-      ],
-      "isCollection": false,
-      "columns": [
-        {
-          "colIndex": 0,
-          "colName": "d3mIndex",
-          "colType": "integer",
-          "role": [
-            "index"
-          ]
-        },
-        {
-          "colIndex": 1,
-          "colName": "labels",
-          "colType": "text",
-          "role": [
-            "attribute"
-          ]
-        },
-        {
-          "colIndex": 2,
-          "colName": "probabilities",
-          "colType": "text",
-          "role": [
-            "attribute"
-          ]
-        }
-      ]
-    }
-  ]
-}`
-	schemaOutput = fmt.Sprintf(schemaOutput, schema.Properties.DatasetID)
-	err = ioutil.WriteFile(outputSchemaPath, []byte(schemaOutput), 0644)
-	if err != nil {
-		return "", errors.Wrap(err, "error writing classification schema")
-	}
-
-	absResultDir, err := filepath.Abs(resultDir)
+	absResultPath, err := filepath.Abs(resultPath)
 	if err != nil {
 		return "", errors.Wrap(err, "Failed to generate absolute path")
 	}
 
-	return absResultDir, nil
+	return absResultPath, nil
 }

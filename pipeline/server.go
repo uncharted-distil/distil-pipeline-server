@@ -100,6 +100,8 @@ func NewServer(userAgent string, resultDir string, sendDelay int,
 
 	server.sr = NewServerRequests()
 
+	rand.Seed(time.Now().UTC().UnixNano())
+
 	return server
 }
 
@@ -521,8 +523,8 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 
 	exposedOutputs := map[string]*Value{
 		"outputs.0": {
-			Value: &Value_DatasetUri{
-				DatasetUri: resultURI,
+			Value: &Value_CsvUri{
+				CsvUri: resultURI,
 			},
 		},
 	}

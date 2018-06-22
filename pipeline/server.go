@@ -100,6 +100,8 @@ func NewServer(userAgent string, resultDir string, sendDelay int,
 
 	server.sr = NewServerRequests()
 
+	rand.Seed(time.Now().UTC().UnixNano())
+
 	return server
 }
 
@@ -113,6 +115,12 @@ func handleError(code codes.Code, err error) error {
 
 func handleTypeError(msg interface{}) error {
 	return status.Error(codes.Internal, errors.Errorf("unexpected msg type %s", reflect.TypeOf(msg)).Error())
+}
+
+func isExecutionRequest(request *SearchSolutionsRequest) bool {
+	steps := request.GetTemplate().GetSteps()
+	step := steps[len(steps)-1]
+	return step.GetPlaceholder() == nil
 }
 
 // SearchSolutions generates a searchID and returns a SearchResponse immediately
@@ -457,43 +465,66 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 	// Get the problem from the search request.  Search request is retrieved
 	// by traversing ancestors and testing the saved message type
 	parentID := produceRequest.GetParent()
-	var problem *ProblemDescription
+	var searchRequestMsg *SearchSolutionsRequest
 	for parentID != "" {
 		parentRequest, err := s.sr.GetRequest(parentID)
 		if err != nil {
 			return handleError(codes.Internal, err)
 		}
-		searchRequestMsg, ok := parentRequest.GetRequestMsg().(*SearchSolutionsRequest)
+		searchRequestMsg, ok = parentRequest.GetRequestMsg().(*SearchSolutionsRequest)
+
 		if ok {
-			problem = searchRequestMsg.GetProblem()
 			break
 		}
 		parentID = parentRequest.GetParent()
 	}
 
-	taskType := problem.GetProblem().GetTaskType()
+	// Check if a primitive rather than a complete solution request is being run.
+	var resultURI string
+	log.Infof("Checking for primitive request")
+	if isExecutionRequest(searchRequestMsg) {
+		log.Infof("Processing primitive request")
+		steps := searchRequestMsg.GetTemplate().GetSteps()
+		uuid := steps[len(steps)-1].GetPrimitive().GetPrimitive().GetId()
 
-	problemInputs := problem.GetInputs()
-	if len(problemInputs) != 1 {
-		return handleError(codes.Internal, errors.Errorf("expecting single input in problem, found %d", len(problemInputs)))
+		// If Simon, return faked output.
+		if uuid == "d2fa8df2-6517-3c26-bafc-87b701c4043a" {
+			resultURI, err = createClassification(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir)
+			if err != nil {
+				return handleError(codes.Internal, errors.Wrapf(err, "Failed to generate classification data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
+			}
+		} else {
+			return handleError(codes.Unimplemented, errors.Errorf("primitive UUID not supported"))
+		}
+	} else {
+		log.Infof("Processing solution request")
+		problem := searchRequestMsg.GetProblem()
+
+		taskType := problem.GetProblem().GetTaskType()
+
+		problemInputs := problem.GetInputs()
+		if len(problemInputs) != 1 {
+			return handleError(codes.Internal, errors.Errorf("expecting single input in problem, found %d", len(problemInputs)))
+		}
+
+		problemTargets := problemInputs[0].GetTargets()
+		if len(problemTargets) != 1 {
+			return handleError(codes.Internal, errors.Errorf("expecting single target in problem, found %d", len(problemTargets)))
+		}
+
+		targetName := problemTargets[0].GetColumnName()
+
+		// create mock result data
+		resultURI, err = createResults(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir, targetName, taskType)
+		if err != nil {
+			return handleError(codes.Internal, errors.Errorf("Failed to generate result data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
+		}
 	}
 
-	problemTargets := problemInputs[0].GetTargets()
-	if len(problemInputs) != 1 {
-		return handleError(codes.Internal, errors.Errorf("expecting single target in problem, found %d", len(problemTargets)))
-	}
-
-	targetName := problemTargets[0].GetColumnName()
-
-	// create mock result data
-	resultURI, err := createResults(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir, targetName, taskType)
-	if err != nil {
-		return handleError(codes.Internal, errors.Errorf("Failed to generate result data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
-	}
 	exposedOutputs := map[string]*Value{
 		"outputs.0": {
-			Value: &Value_DatasetUri{
-				DatasetUri: resultURI,
+			Value: &Value_CsvUri{
+				CsvUri: resultURI,
 			},
 		},
 	}

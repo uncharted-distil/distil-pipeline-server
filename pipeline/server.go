@@ -487,11 +487,24 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 		steps := searchRequestMsg.GetTemplate().GetSteps()
 		uuid := steps[len(steps)-1].GetPrimitive().GetPrimitive().GetId()
 
-		// If Simon, return faked output.
+		//TODO: Use a map lookup to simplify code.
 		if uuid == "d2fa8df2-6517-3c26-bafc-87b701c4043a" {
+			// If Simon, return faked output.
 			resultURI, err = createClassification(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir)
 			if err != nil {
 				return handleError(codes.Internal, errors.Wrapf(err, "Failed to generate classification data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
+			}
+		} else if uuid == "d2fa8df2-6517-3c26-bafc-87b701c4043a" {
+			// If Punk, return faked output.
+			resultURI, err = createRanking(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir)
+			if err != nil {
+				return handleError(codes.Internal, errors.Wrapf(err, "Failed to generate ranking data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
+			}
+		} else if uuid == "46612a42-6120-3559-9db9-3aa9a76eb94f" {
+			// If Duke, return faked output.
+			resultURI, err = createSummary(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir)
+			if err != nil {
+				return handleError(codes.Internal, errors.Wrapf(err, "Failed to generate summary data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
 			}
 		} else {
 			return handleError(codes.Unimplemented, errors.Errorf("primitive UUID not supported"))

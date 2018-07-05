@@ -19,7 +19,7 @@ func createFeature(solutionID string, datasetURI string, resultURI string) (stri
 	dataPath = strings.Replace(dataPath, "datasetDoc.json", "", 1)
 	schema, err := loadDataSchema(dataPath)
 	if err != nil {
-		log.Warnf("unable to classify data since schema cannot be loaded - %v", err)
+		log.Warnf("unable to featurize data since schema cannot be loaded - %v", err)
 		return "", err
 	}
 
@@ -47,13 +47,13 @@ func createFeature(solutionID string, datasetURI string, resultURI string) (stri
 	}
 
 	// read the data to output 1 row / index
-	data, err := loadDataFileCsv(dataFile)
+	data, err := loadDataFileCsv(path.Join(dataPath, dataFile))
 	if err != nil {
 		return "", errors.Wrap(err, "unable to read data file")
 	}
 
 	for i := 0; i < len(data); i++ {
-		err = writer.Write([]string{data[i][indexColumn], "cat,dog,mad_hat", "0.3,0.24,0.17"})
+		err = writer.Write([]string{data[i][indexColumn], "['cat','dog','mad_hat']", "[0.3,0.24,0.17]"})
 		if err != nil {
 			return "", errors.Wrap(err, "unable to write header in output")
 		}
@@ -61,7 +61,7 @@ func createFeature(solutionID string, datasetURI string, resultURI string) (stri
 
 	resultDir := path.Join(resultURI, fmt.Sprintf("%s-%d", solutionID, 0))
 	if err := os.MkdirAll(resultDir, 0777); err != nil && !os.IsExist(err) {
-		return "", errors.Wrap(err, "unable to create summary output directory")
+		return "", errors.Wrap(err, "unable to create feature output directory")
 	}
 
 	resultPath := path.Join(resultDir, "results.csv")
@@ -69,7 +69,7 @@ func createFeature(solutionID string, datasetURI string, resultURI string) (stri
 	writer.Flush()
 	err = ioutil.WriteFile(resultPath, output.Bytes(), 0644)
 	if err != nil {
-		return "", errors.Wrap(err, "error writing summary output")
+		return "", errors.Wrap(err, "error writing feature output")
 	}
 
 	absResultPath, err := filepath.Abs(resultPath)

@@ -510,7 +510,7 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 			// If Croc, return faked output.
 			resultURI, err = createFeature(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir)
 			if err != nil {
-				return handleError(codes.Internal, errors.Wrapf(err, "Failed to generate summary data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
+				return handleError(codes.Internal, errors.Wrapf(err, "Failed to generate feature data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
 			}
 		} else {
 			return handleError(codes.Unimplemented, errors.Errorf("primitive UUID not supported"))

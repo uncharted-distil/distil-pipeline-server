@@ -14,7 +14,12 @@ const defaultRecordCount = 100
 
 func loadDataCsv(dirName string) ([][]string, error) {
 	// load training data from the supplied directory
-	f, err := os.Open(path.Join(dirName, "tables", "learningData.csv"))
+	return loadDataFileCsv(path.Join(dirName, "tables", "learningData.csv"))
+}
+
+func loadDataFileCsv(filename string) ([][]string, error) {
+	// load training data from the supplied directory
+	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -22,7 +27,7 @@ func loadDataCsv(dirName string) ([][]string, error) {
 
 	lines, err := csv.NewReader(f).ReadAll()
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load csv from `%s`", dirName)
+		return nil, errors.Wrapf(err, "failed to load csv from `%s`", filename)
 	}
 	return lines, nil
 }

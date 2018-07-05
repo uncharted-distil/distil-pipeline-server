@@ -494,8 +494,8 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 			if err != nil {
 				return handleError(codes.Internal, errors.Wrapf(err, "Failed to generate classification data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
 			}
-		} else if uuid == "d2fa8df2-6517-3c26-bafc-87b701c4043a" {
-			// If Punk, return faked output.
+		} else if uuid == "04573880-d64f-4791-8932-52b7c3877639" {
+			// If PCA Features, return faked output.
 			resultURI, err = createRanking(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir)
 			if err != nil {
 				return handleError(codes.Internal, errors.Wrapf(err, "Failed to generate ranking data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
@@ -503,6 +503,12 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 		} else if uuid == "46612a42-6120-3559-9db9-3aa9a76eb94f" {
 			// If Duke, return faked output.
 			resultURI, err = createSummary(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir)
+			if err != nil {
+				return handleError(codes.Internal, errors.Wrapf(err, "Failed to generate summary data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
+			}
+		} else if uuid == "404fae2a-2f0a-4c9b-9ad2-fb1528990561" {
+			// If Croc, return faked output.
+			resultURI, err = createFeature(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir)
 			if err != nil {
 				return handleError(codes.Internal, errors.Wrapf(err, "Failed to generate summary data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
 			}

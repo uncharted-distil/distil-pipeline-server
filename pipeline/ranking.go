@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -14,13 +15,13 @@ import (
 	log "github.com/unchartedsoftware/plog"
 )
 
-func createClassification(solutionID string, datasetURI string, resultURI string) (string, error) {
+func createRanking(solutionID string, datasetURI string, resultURI string) (string, error) {
 	// load the source data
 	dataPath := strings.Replace(datasetURI, "file://", "", 1)
 	dataPath = strings.Replace(dataPath, "datasetDoc.json", "", 1)
 	schema, err := loadDataSchema(dataPath)
 	if err != nil {
-		log.Warnf("unable to classify data since schema cannot be loaded - %v", err)
+		log.Warnf("unable to rank data since schema cannot be loaded - %v", err)
 		return "", err
 	}
 
@@ -31,21 +32,21 @@ func createClassification(solutionID string, datasetURI string, resultURI string
 	output := &bytes.Buffer{}
 	writer := csv.NewWriter(output)
 
-	// output should be header row, and 1 row per variable (name,labels,probabilities)
-	err = writer.Write([]string{"name", "labels", "probabilities"})
+	// output should be header row, and 1 row per variable (name,importance)
+	err = writer.Write([]string{"name", "importance"})
 	if err != nil {
 		return "", errors.Wrap(err, "unable to write header in output")
 	}
 
 	for _, v := range schema.DataResources[0].Variables {
-		err = writer.Write([]string{v.ColName, "['categorical','text']", "[0.875, 0.657]"})
+		err = writer.Write([]string{v.ColName, fmt.Sprintf("%f", rand.Float64())})
 		if err != nil {
-			return "", errors.Wrap(err, "unable to write classification in output")
+			return "", errors.Wrap(err, "unable to write ranking in output")
 		}
 	}
 	resultDir := path.Join(resultURI, fmt.Sprintf("%s-%d", solutionID, 0))
 	if err := os.MkdirAll(resultDir, 0777); err != nil && !os.IsExist(err) {
-		return "", errors.Wrap(err, "unable to create classification output directory")
+		return "", errors.Wrap(err, "unable to create ranking output directory")
 	}
 
 	resultPath := path.Join(resultDir, "results.csv")
@@ -53,7 +54,7 @@ func createClassification(solutionID string, datasetURI string, resultURI string
 	writer.Flush()
 	err = ioutil.WriteFile(resultPath, output.Bytes(), 0644)
 	if err != nil {
-		return "", errors.Wrap(err, "error writing classification output")
+		return "", errors.Wrap(err, "error writing ranking output")
 	}
 
 	absResultPath, err := filepath.Abs(resultPath)

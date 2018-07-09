@@ -39,7 +39,7 @@ func createRanking(solutionID string, datasetURI string, resultURI string) (stri
 	}
 
 	for _, v := range schema.DataResources[0].Variables {
-		err = writer.Write([]string{v.ColName, fmt.Sprintf("%f", rand.Float64())})
+		err = writer.Write([]string{fmt.Sprintf("%d", v.ColIndex), fmt.Sprintf("%f", rand.Float64())})
 		if err != nil {
 			return "", errors.Wrap(err, "unable to write ranking in output")
 		}

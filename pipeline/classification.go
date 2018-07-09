@@ -38,7 +38,7 @@ func createClassification(solutionID string, datasetURI string, resultURI string
 	}
 
 	for _, v := range schema.DataResources[0].Variables {
-		err = writer.Write([]string{v.ColName, "['categorical','text']", "[0.875, 0.657]"})
+		err = writer.Write([]string{fmt.Sprintf("%d", v.ColIndex), "['categorical','text']", "[0.875, 0.657]"})
 		if err != nil {
 			return "", errors.Wrap(err, "unable to write classification in output")
 		}

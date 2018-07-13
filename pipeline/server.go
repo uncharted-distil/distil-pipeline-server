@@ -285,7 +285,13 @@ func (s *Server) GetScoreSolutionResults(req *GetScoreSolutionResultsRequest, st
 		scores = append(scores, &Score{
 			Metric: metric,
 			Value: &Value{
-				Value: &Value_Double{rand.Float64()},
+				Value: &Value_Raw{
+					Raw: &ValueRaw{
+						Raw: &ValueRaw_Double{
+							Double: rand.Float64(),
+						},
+					},
+				},
 			},
 		})
 	}

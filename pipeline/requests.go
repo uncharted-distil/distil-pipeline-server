@@ -50,7 +50,7 @@ func (s *baseRequestNode) GetRequestMsg() interface{} {
 type ServerRequests struct {
 	searches []string
 	nodes    map[string]*baseRequestNode
-	complete *set.Set
+	complete set.Interface
 	lock     *sync.RWMutex
 }
 
@@ -59,7 +59,7 @@ func NewServerRequests() *ServerRequests {
 	server := &ServerRequests{
 		searches: []string{},
 		nodes:    map[string]*baseRequestNode{},
-		complete: set.New(),
+		complete: set.New(set.ThreadSafe),
 		lock:     new(sync.RWMutex),
 	}
 	rootNode := &baseRequestNode{

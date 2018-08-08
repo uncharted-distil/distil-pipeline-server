@@ -119,8 +119,11 @@ func handleTypeError(msg interface{}) error {
 
 func isExecutionRequest(request *SearchSolutionsRequest) bool {
 	steps := request.GetTemplate().GetSteps()
-	step := steps[len(steps)-1]
-	return step.GetPlaceholder() == nil
+	if steps != nil && len(steps) > 0 {
+		step := steps[len(steps)-1]
+		return step.GetPlaceholder() == nil
+	}
+	return false
 }
 
 // SearchSolutions generates a searchID and returns a SearchResponse immediately

@@ -23,7 +23,9 @@
 #   non-go = false
 #   go-tests = true
 #   unused-packages = true
-
+[[constraint]]
+  name = "github.com/fatih/set"
+  version = "0.2.1"
 
 [[constraint]]
   name = "github.com/caarlos0/env"

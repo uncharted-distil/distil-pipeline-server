@@ -16,7 +16,8 @@
 [[projects]]
   name = "github.com/fatih/set"
   packages = ["."]
-  revision = "27c40922c40b43fe04554d8223a402af3ea333f3"
+  revision = "2c768e3c5489976167bfc42b5c7c92ca783f4389"
+  version = "v0.2.1"
 
 [[projects]]
   name = "github.com/golang/protobuf"
@@ -154,6 +155,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "4447dc1310cd79021b2cd432168fdfa53738651ff3bb3461eb149332d581363e"
+  inputs-digest = "804a420d37aa67151a69e8223f56264854aaf72bdde7e2eedfe8272585b13412"
   solver-name = "gps-cdcl"
   solver-version = 1

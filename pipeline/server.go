@@ -117,15 +117,6 @@ func handleTypeError(msg interface{}) error {
 	return status.Error(codes.Internal, errors.Errorf("unexpected msg type %s", reflect.TypeOf(msg)).Error())
 }
 
-func isExecutionRequest(request *SearchSolutionsRequest) bool {
-	steps := request.GetTemplate().GetSteps()
-	if steps != nil && len(steps) > 0 {
-		step := steps[len(steps)-1]
-		return step.GetPlaceholder() == nil
-	}
-	return false
-}
-
 // SearchSolutions generates a searchID and returns a SearchResponse immediately
 func (s *Server) SearchSolutions(ctx context.Context, req *SearchSolutionsRequest) (*SearchSolutionsResponse, error) {
 	log.Infof("Received SearchSolutions - %v", req)
@@ -491,62 +482,28 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 	// Check if a primitive rather than a complete solution request is being run.
 	var resultURI string
 	log.Infof("Checking for primitive request")
-	if isExecutionRequest(searchRequestMsg) {
-		log.Infof("Processing primitive request")
-		steps := searchRequestMsg.GetTemplate().GetSteps()
-		uuid := steps[len(steps)-1].GetPrimitive().GetPrimitive().GetId()
 
-		//TODO: Use a map lookup to simplify code.
-		if uuid == "d2fa8df2-6517-3c26-bafc-87b701c4043a" {
-			// If Simon, return faked output.
-			resultURI, err = createClassification(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir)
-			if err != nil {
-				return handleError(codes.Internal, errors.Wrapf(err, "Failed to generate classification data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
-			}
-		} else if uuid == "04573880-d64f-4791-8932-52b7c3877639" {
-			// If PCA Features, return faked output.
-			resultURI, err = createRanking(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir)
-			if err != nil {
-				return handleError(codes.Internal, errors.Wrapf(err, "Failed to generate ranking data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
-			}
-		} else if uuid == "46612a42-6120-3559-9db9-3aa9a76eb94f" {
-			// If Duke, return faked output.
-			resultURI, err = createSummary(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir)
-			if err != nil {
-				return handleError(codes.Internal, errors.Wrapf(err, "Failed to generate summary data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
-			}
-		} else if uuid == "404fae2a-2f0a-4c9b-9ad2-fb1528990561" {
-			// If Croc, return faked output.
-			resultURI, err = createFeature(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir)
-			if err != nil {
-				return handleError(codes.Internal, errors.Wrapf(err, "Failed to generate feature data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
-			}
-		} else {
-			return handleError(codes.Unimplemented, errors.Errorf("primitive UUID not supported"))
-		}
-	} else {
-		log.Infof("Processing solution request")
-		problem := searchRequestMsg.GetProblem()
+	log.Infof("Processing solution request")
+	problem := searchRequestMsg.GetProblem()
 
-		taskType := problem.GetProblem().GetTaskType()
+	taskType := problem.GetProblem().GetTaskType()
 
-		problemInputs := problem.GetInputs()
-		if len(problemInputs) != 1 {
-			return handleError(codes.Internal, errors.Errorf("expecting single input in problem, found %d", len(problemInputs)))
-		}
+	problemInputs := problem.GetInputs()
+	if len(problemInputs) != 1 {
+		return handleError(codes.Internal, errors.Errorf("expecting single input in problem, found %d", len(problemInputs)))
+	}
 
-		problemTargets := problemInputs[0].GetTargets()
-		if len(problemTargets) != 1 {
-			return handleError(codes.Internal, errors.Errorf("expecting single target in problem, found %d", len(problemTargets)))
-		}
+	problemTargets := problemInputs[0].GetTargets()
+	if len(problemTargets) != 1 {
+		return handleError(codes.Internal, errors.Errorf("expecting single target in problem, found %d", len(problemTargets)))
+	}
 
-		targetName := problemTargets[0].GetColumnName()
+	targetName := problemTargets[0].GetColumnName()
 
-		// create mock result data
-		resultURI, err = createResults(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir, targetName, taskType)
-		if err != nil {
-			return handleError(codes.Internal, errors.Errorf("Failed to generate result data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
-		}
+	// create mock result data
+	resultURI, err = createResults(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir, targetName, taskType)
+	if err != nil {
+		return handleError(codes.Internal, errors.Errorf("Failed to generate result data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
 	}
 
 	exposedOutputs := map[string]*Value{

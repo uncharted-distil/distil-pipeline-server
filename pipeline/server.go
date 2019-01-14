@@ -503,7 +503,7 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 	// create mock result data
 	resultURI, err = createResults(produceRequestMsg.GetFittedSolutionId(), datasetURIValue.DatasetUri, s.resultDir, targetName, taskType)
 	if err != nil {
-		return handleError(codes.Internal, errors.Errorf("Failed to generate result data for solution `%s`", produceRequestMsg.GetFittedSolutionId()))
+		return handleError(codes.Internal, errors.Errorf("Failed to generate result data for solution `%s`: %v", produceRequestMsg.GetFittedSolutionId(), err))
 	}
 
 	exposedOutputs := map[string]*Value{

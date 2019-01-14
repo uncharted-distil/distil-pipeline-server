@@ -140,9 +140,20 @@ func buildLookup(d3mIndexCol int, csvPath string, fieldName string) (map[string]
 		}
 	}
 
+	if fieldIndex == -1 {
+		return nil, fmt.Errorf("unable to find field index for field `%s`", fieldName)
+	}
+
 	// Map the index to the target value.
 	lookup := make(map[string]string)
 	for _, row := range data[1:] {
+		if d3mIndexCol > len(row) {
+			return nil, fmt.Errorf("`d3mIndexCol` index is outside range of row")
+		}
+
+		if fieldIndex > len(row) {
+			return nil, fmt.Errorf("`fieldIndex` index is outside range of row")
+		}
 		lookup[row[d3mIndexCol]] = row[fieldIndex]
 	}
 

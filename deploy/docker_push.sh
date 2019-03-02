@@ -2,5 +2,5 @@
 
 source ./config.sh
 
-docker push docker.uncharted.software/$DOCKER_IMAGE_NAME:${DOCKER_IMAGE_VERSION}
-docker push docker.uncharted.software/$DOCKER_IMAGE_NAME:latest
+docker push $DOCKER_REPO/$DOCKER_IMAGE_NAME:${DOCKER_IMAGE_VERSION}
+docker push $DOCKER_REPO/$DOCKER_IMAGE_NAME:latest

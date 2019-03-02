@@ -5,11 +5,11 @@ import (
 	"net"
 	"os"
 
-	"github.com/unchartedsoftware/plog"
+	log "github.com/unchartedsoftware/plog"
 	"google.golang.org/grpc"
 
-	"github.com/unchartedsoftware/distil-pipeline-server/env"
-	"github.com/unchartedsoftware/distil-pipeline-server/pipeline"
+	"github.com/uncharted-distil/distil-pipeline-server/env"
+	"github.com/uncharted-distil/distil-pipeline-server/pipeline"
 )
 
 const (

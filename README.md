@@ -2,7 +2,7 @@
 
 Provides a stub server for testing Distil GRPC calls.
 
-[![CircleCI](https://circleci.com/gh/unchartedsoftware/distil-pipeline-server/tree/master.svg?style=svg&circle-token=6037bacad70b27a10c6fb2d21d31ed75fc6734ab)](https://circleci.com/gh/unchartedsoftware/distil-pipeline-server/tree/master)
+[![CircleCI](https://circleci.com/gh/uncharted-distil/distil-pipeline-server/tree/master.svg?style=svg&circle-token=6037bacad70b27a10c6fb2d21d31ed75fc6734ab)](https://circleci.com/gh/uncharted-distil/distil-pipeline-server/tree/master)
 
 ## Dependencies
 
@@ -13,9 +13,9 @@ Provides a stub server for testing Distil GRPC calls.
 Clone the repository:
 
 ```bash
-mkdir -p $GOPATH/src/github.com/unchartedsoftware
-cd $GOPATH/src/github.com/unchartedsoftware
-git clone git@github.com:unchartedsoftware/distil-pipeline-server.git
+mkdir -p $GOPATH/src/github.com/uncharted-distil/
+cd $GOPATH/src/github.com/uncharted-distil/
+git clone git@github.com:uncharted-distil/distil-pipeline-server.git
 ```
 
 Install dependencies:

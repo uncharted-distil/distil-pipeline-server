@@ -97,17 +97,6 @@
   version = "v1.2.2"
 
 [[projects]]
-  digest = "1:f1f147314bd39a5b8b3d52ab34052df174cc58b98e0f70fa7b96c539799f9b7b"
-  name = "github.com/uncharted-distil/distil-pipeline-server"
-  packages = [
-    "env",
-    "pipeline",
-  ]
-  pruneopts = "UT"
-  revision = "774364bd513a3202159da85824dc07422bf38133"
-  version = "0.19.4"
-
-[[projects]]
   branch = "master"
   digest = "1:5e969d32a6c01904b2ad695007113b8e088e7b4511d54a400cc45b6143b0342f"
   name = "github.com/unchartedsoftware/plog"
@@ -223,8 +212,6 @@
     "github.com/pkg/errors",
     "github.com/satori/go.uuid",
     "github.com/stretchr/testify/assert",
-    "github.com/uncharted-distil/distil-pipeline-server/env",
-    "github.com/uncharted-distil/distil-pipeline-server/pipeline",
     "github.com/unchartedsoftware/plog",
     "golang.org/x/net/context",
     "google.golang.org/grpc",

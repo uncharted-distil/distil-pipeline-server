@@ -17,12 +17,12 @@ jobs:
     #### expecting it in the form of
     ####   /go/src/github.com/circleci/go-tool
     ####   /go/src/bitbucket.org/circleci/go-tool
-    working_directory: /go/src/github.com/uncharted-distil/distil-compute
+    working_directory: /go/src/github.com/uncharted-distil/distil-pipeline-server
     steps:
       - checkout
       - run:
           name: build app binary
-          command: /bin/sh -c "dep ensure;go build -i"
+          command: /bin/sh -c "dep ensure -v;go build -i"
 
 
 

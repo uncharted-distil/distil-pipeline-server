@@ -552,13 +552,38 @@ func (s *Server) GetProduceSolutionResults(req *GetProduceSolutionResultsRequest
 func (s *Server) SolutionExport(ctx context.Context, req *SolutionExportRequest) (*SolutionExportResponse, error) {
 	log.Infof("Received ExportSolution - %v", req)
 
-	solutionID := req.GetFittedSolutionId()
+	solutionID := req.GetSolutionId()
 	_, err := s.sr.GetRequest(solutionID)
 	if err != nil {
 		handleError(codes.InvalidArgument, err)
 	}
 	response := &SolutionExportResponse{}
 	return response, nil
+}
+
+// DataAvailable does something
+func (s *Server) DataAvailable(ctx context.Context, in *DataAvailableRequest) (*DataAvailableResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+// LoadFittedSolution does something
+func (s *Server) LoadFittedSolution(ctx context.Context, in *LoadFittedSolutionRequest) (*LoadFittedSolutionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+// LoadSolution does something
+func (s *Server) LoadSolution(ctx context.Context, in *LoadSolutionRequest) (*LoadSolutionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+// SaveSolution does something
+func (s *Server) SaveSolution(ctx context.Context, in *SaveSolutionRequest) (*SaveSolutionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
+}
+
+// SaveFittedSolution does something
+func (s *Server) SaveFittedSolution(ctx context.Context, in *SaveFittedSolutionRequest) (*SaveFittedSolutionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "Method unimplemented")
 }
 
 // UpdateProblem updates the problem defintion associated with a search

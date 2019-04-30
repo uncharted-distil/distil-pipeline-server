@@ -83,6 +83,7 @@ func generateDataFromSchema(schema *DataSchema, fittedSolutionID string, dataPat
 			return targetLookup[fmt.Sprintf("%d", index)]
 		}
 	} else if task == TaskType_REGRESSION {
+
 		generator = func(index int) string {
 			var desiredMean float64
 			targetValue := targetLookup[fmt.Sprintf("%d", index)]
@@ -99,6 +100,25 @@ func generateDataFromSchema(schema *DataSchema, fittedSolutionID string, dataPat
 			value := adjustment*desiredMean + desiredMean
 			return strconv.FormatFloat(value, 'f', 4, 64)
 		}
+	} else if task == TaskType_TIME_SERIES_FORECASTING {
+
+		generator = func(index int) string {
+			var desiredMean float64
+			targetValue := targetLookup[fmt.Sprintf("%d", index)]
+			if targetValue != "" {
+				desiredMean, err = strconv.ParseFloat(targetValue, 64)
+				if err != nil {
+					log.Errorf("Error generating data: %v", err)
+					// TODO: use min & max values and randomly pick a value in between.
+					return strconv.FormatFloat(rand.Float64(), 'f', 4, 64)
+				}
+			}
+
+			adjustment := rand.Float64() * 0.1
+			value := adjustment*desiredMean + desiredMean
+			return strconv.FormatFloat(value, 'f', 4, 64)
+		}
+
 	} else {
 		return "", errors.Errorf("unhandled task type %s", task)
 	}
@@ -127,6 +147,10 @@ func generateDataNoSchema(solutionID string, resultPath string, targetFeature st
 		generator = func(index int) string {
 			return strconv.FormatFloat(rand.NormFloat64(), 'f', 4, 64)
 		}
+	} else if task == TaskType_TIME_SERIES_FORECASTING {
+		generator = func(index int) string {
+			return strconv.FormatFloat(rand.NormFloat64(), 'f', 4, 64)
+		}
 	} else {
 		return "", errors.Errorf("unhandled task type %s", task)
 	}
@@ -150,7 +174,7 @@ func buildLookup(d3mIndexCol int, csvPath string, fieldName string) (map[string]
 	// Map the field name to an index.
 	var fieldIndex = -1
 	for i, field := range data[0] {
-		if fieldName == field {
+		if strings.EqualFold(fieldName, field) {
 			fieldIndex = i
 		}
 	}
@@ -185,12 +209,10 @@ func getCategories(csvPath string, fieldName string) ([]string, error) {
 	// Map the field name to an index.
 	var fieldIndex = -1
 	for i, field := range data[0] {
-		if fieldName == field {
+		if strings.EqualFold(fieldName, field) {
 			fieldIndex = i
 		}
 	}
-
-	log.Infof("%v", data[0])
 
 	if fieldIndex < 0 {
 		return nil, errors.Errorf("Could not find field %s in data", fieldName)

@@ -65,14 +65,14 @@ var ValueType_name = map[int32]string{
 
 var ValueType_value = map[string]int32{
 	"VALUE_TYPE_UNDEFINED": 0,
-	"RAW":               1,
-	"DATASET_URI":       2,
-	"CSV_URI":           3,
-	"PICKLE_URI":        4,
-	"PICKLE_BLOB":       5,
-	"PLASMA_ID":         6,
-	"LARGE_RAW":         7,
-	"LARGE_PICKLE_BLOB": 8,
+	"RAW":                  1,
+	"DATASET_URI":          2,
+	"CSV_URI":              3,
+	"PICKLE_URI":           4,
+	"PICKLE_BLOB":          5,
+	"PLASMA_ID":            6,
+	"LARGE_RAW":            7,
+	"LARGE_PICKLE_BLOB":    8,
 }
 
 func (x ValueType) String() string {

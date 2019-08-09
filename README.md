@@ -4,6 +4,7 @@ Provides a stub server for testing Distil GRPC calls.
 
 [![CircleCI](https://circleci.com/gh/uncharted-distil/distil-pipeline-server/tree/master.svg?style=svg&circle-token=6037bacad70b27a10c6fb2d21d31ed75fc6734ab)](https://circleci.com/gh/uncharted-distil/distil-pipeline-server/tree/master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/uncharted-distil/distil-pipeline-server)](https://goreportcard.com/report/github.com/uncharted-distil/distil-pipeline-server)
+[![GolangCI](https://golangci.com/badges/github.com/uncharted-distil/distil-pipeline-server.svg)](https://golangci.com/r/github.com/uncharted-distil/distil-pipeline-server)
 
 ## Dependencies
 
